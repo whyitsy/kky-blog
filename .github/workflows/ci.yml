@@ -559,8 +559,16 @@ jobs:
           # 日常 main 分支构建**不动** :latest，它才等于「最新正式版」这个可靠含义。
           flavor: latest=auto
           tags: |
-            # 不可变身份：回滚永远认它
-            type=sha,format=long
+            # ⚠️ 不可变身份用**裸** `github.sha`，不要用 `type=sha`。
+            #
+            # 为什么：`type=sha` 产出的是 **`sha-<完整sha>`**（前缀是为了避免与版本号混淆）。
+            # 而部署契约（docs/05 §8.7.1、tools/deploy/server-update.sh）写的是
+            # 「tag 就是那次合并的提交 sha」—— 服务器上就是拿 `:<sha>` 去 pull 的。
+            # 换成带前缀的形式后，线上实测直接 404：
+            #   failed to resolve reference "...-webapi:922527d...": not found
+            # 而镜像其实推上去了（`sha-922527d...` 在）。
+            # 这里用 type=raw 明确产出裸 sha，保住那条契约。
+            type=raw,value=${{ github.sha }}
             # 人读的版本号：tag 推送时用 tag 名，否则用 v0.0.0-main.<短sha>
             type=raw,value=${{ steps.version.outputs.version }}
             # 只有打 tag 发布才移动 :latest
@@ -597,7 +605,10 @@ jobs:
           images: ghcr.io/${{ github.repository }}-nginx
           flavor: latest=auto
           tags: |
-            type=sha,format=long
+            # 与 webapi 完全同一套规则（裸 sha，不是 type=sha 的 sha- 前缀形式）——
+            # 两个镜像的 tag 必须一致，否则 server-update.sh 一次要拉两个，
+            # 其中一个形式不对就整个失败（线上实测踩过）
+            type=raw,value=${{ github.sha }}
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
           labels: |

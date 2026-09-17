@@ -13,18 +13,38 @@
 #   ③ GHCR 上的 package 已经设为 public（否则要 docker login ghcr.io）
 #
 # 用法（在 /opt/blog）：
-#   bash tools/deploy/server-update.sh <提交 sha>
-#   bash tools/deploy/server-update.sh <sha> --check     # 只拉不切，先看能不能拉到
+#   bash tools/deploy/server-update.sh <提交 sha>            # 完整 sha
+#   bash tools/deploy/server-update.sh sha-<提交 sha>        # CI 摘要里贴出来的形式也行
+#   bash tools/deploy/server-update.sh <sha> --check         # 只拉不切，先看能不能拉到
 #
+# ⚠️ 只接受**完整** sha：短 sha 在 registry 里没有对应 tag。
 # ⚠️ 不要用 `latest`：那是个会移动的标签，出事时说不清线上跑的是哪一版。
 set -euo pipefail
 
-SHA="${1:?用法: bash server-update.sh <提交 sha>   （sha 从 CI 的作业摘要里抄）}"
+SHA="${1:?用法: bash server-update.sh <完整提交 sha>   （从 CI 的作业摘要里抄，带不带 sha- 前缀都行）}"
 MODE="${2:-apply}"
 
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 ok()   { printf '  ✅ %s\n' "$1"; }
 die()  { printf '  ❌ %s\n' "$1" >&2; exit 1; }
+
+# ────────────────────────────────────────────────────────────────
+# tag 归一化：把 "sha-<sha>" 还原成 "<sha>"。
+#
+# 为什么需要：CI 里用 docker/metadata-action 生成镜像 tag，它的
+# `type=sha` 产出的是 **`sha-<完整sha>`**（前缀是为了避免和版本号混淆），
+# 而不是裸的 `<完整sha>`。
+#
+# 这段归一化让**两种写法都能用**（顺手把用户有时会粘上的 ":" 去掉），
+# 这样无论 tag 规则怎么调、"从工件里抄"还是"从提交里抄"，命令都不用变：
+#   bash server-update.sh 922527d33dad6d361687943f3d3e0351396307fd
+#   bash server-update.sh sha-922527d33dad6d361687943f3d3e0351396307fd
+#
+# 注意只接受**完整 sha**：短 sha（如 922527d）在 registry 里不存在对应 tag，
+# 这里不猜（猜错会拉到一个不存在的 tag，报错反而更难懂）。
+# ────────────────────────────────────────────────────────────────
+SHA="${SHA#:}"
+SHA="${SHA#sha-}"
 
 [ -f .env ] || die "当前目录没有 .env"
 [ -f docker-compose.yml ] || die "当前目录没有 docker-compose.yml"
