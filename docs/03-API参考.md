@@ -2,7 +2,7 @@
 
 > **用途**：后端 HTTP 端点的权威清单——路径、方法、权限、参数、响应字段、错误。
 > **读者**：前端开发者、接口调试者、需要确认"某个端点到底存不存在、需要什么权限"时。
-> **最后核对**：2026-09-14 ｜ **代码依据**：`Blog.Backend/Blog.WebApi/Controllers/*.cs`
+> **最后核对**：2026-09-17 ｜ **代码依据**：`Blog.Backend/Blog.WebApi/Controllers/*.cs`
 >
 > 权限模型全貌（角色、策略、归属校验为什么在服务层）见
 > [02-架构与数据模型.md](./02-架构与数据模型.md) §10；异常映射与中间件顺序见同文 §4、§11。
@@ -150,7 +150,7 @@ HTTP 状态码**同时**被设置成语义正确的值（400/401/403/404/409/413
 ### 1.6 端点总表
 
 按控制器连续编号：Auth 1–3、Posts 4–12、Authors 13–18、Categories 19–22、Tags 23–26、
-Collections 27–33、Site 34–39、Users 40–45、Files 46–47。
+Collections 27–33、Site 34–39、Users 40–45、Files 46–47、Version 48。
 
 | # | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|---|
@@ -201,6 +201,7 @@ Collections 27–33、Site 34–39、Users 40–45、Files 46–47。
 | 45 | POST | `/api/users/{id}/disable` | 👑 AdminOnly | 停用账号 |
 | 46 | POST | `/api/files/upload` | ✍️ ContentWriter | 上传文件，返回可访问 URL |
 | 47 | GET | `/api/files/{**path}` | 🌐 公开 | 读取文件 |
+| 48 | GET | `/api/version` | 🌐 公开 | 后端版本号 / commit / 构建时间 |
 
 \* 带 `includeUnpublished=true` 或访问草稿时需登录，规则见 §4.1 与 §4.2。
 
@@ -723,16 +724,44 @@ Collections 27–33、Site 34–39、Users 40–45、Files 46–47。
 
 端点总数与逐条编号以 §1.6 的总表为准——**那张表就是权威清单**，这里不重复计数。
 
-两个**不在 `/api` 下、也不在控制器里**的端点：
+**不在 `/api` 下**的两个端点：
 
 | 端点 | 说明 |
 |---|---|
-| `GET /` | 存活探针（`Program.cs:212`），返回 `{ name: "Blog API", status: "running" }`——**只证明进程在，不检查依赖**，也**不是**统一响应体 |
-| `GET /health` | 健康检查（`HealthCheckSetup.cs:55`），**对外只返回 `Healthy` / `Unhealthy` 纯文本**（200 / 503），详情只写日志 |
+| `GET /` | 存活探针（`Program.cs`），返回 `{ name: "Blog API", status: "running" }`——**只证明进程在，不检查依赖**，也**不是**统一响应体 |
+| `GET /health` | 健康检查（`HealthCheckSetup.cs`），**对外只返回 `Healthy` / `Unhealthy` 纯文本**（200 / 503），详情只写日志 |
 
 `/health` 的检查项有四项（PostgreSQL 连通性、`zhparser` 与 `chinese` 检索配置是否真的可用、
 迁移是否全部应用、Redis 连通性），任一项失败整体 503；设计说明见
 [02-架构与数据模型.md](./02-架构与数据模型.md) §15。
+
+### 11.1 `GET /api/version` — 版本信息（#48）
+
+**用途**：回答「线上现在跑的是哪一版」。部署完一句 `curl` 就能核对，
+不用 `docker inspect` 反推镜像 tag（`:latest` 会飘，看它等于没看）。
+
+| 项 | 值 |
+|---|---|
+| 权限 | 🌐 公开（匿名可访问） |
+| 响应 | 统一响应体，`data` 恒为三个字段 |
+
+```json
+{ "code": 0, "message": "ok",
+  "data": { "version": "v2026.09.17", "commit": "0be5460…", "builtAt": "2026-09-17T10:00:00Z" } }
+```
+
+| 字段 | 来源 | 取不到时 |
+|---|---|---|
+| `version` | git tag，CI 用 `--build-arg VERSION` 注入 | `"unknown"`（**不伪装成真实版本号**） |
+| `commit` | 完整 git SHA，CI 注入 | 空串 |
+| `builtAt` | 构建时刻（UTC） | 当前时间 |
+
+> 🔒 **字段集合是刻意收敛的，不要"顺手"加东西。** 这个端点匿名可访问，
+> 多一个字段就多一次信息泄露的机会。契约由 `VersionEndpointTests` 钉住
+> （只允许这三个字段，且值里不得出现路径 / 连接串）。
+> 需要更多排障信息时看 `/health` 与服务端日志，不要往这里塞。
+
+版本号规则、镜像 tag 与回滚流程见 [05-运维与部署手册.md](./05-运维与部署手册.md) §8.7。
 
 ---
 

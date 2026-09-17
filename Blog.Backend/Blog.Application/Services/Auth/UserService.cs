@@ -13,17 +13,20 @@ namespace Blog.Application.Services.Auth
         private readonly IUserRepository _users;
         private readonly IAuthorRepository _authors;
         private readonly IPasswordHasher _passwordHasher;
+        private readonly ICurrentUserCache _currentUserCache;
         private readonly IUnitOfWork _uow;
 
         public UserService(
             IUserRepository users,
             IAuthorRepository authors,
             IPasswordHasher passwordHasher,
+            ICurrentUserCache currentUserCache,
             IUnitOfWork uow)
         {
             _users = users;
             _authors = authors;
             _passwordHasher = passwordHasher;
+            _currentUserCache = currentUserCache;
             _uow = uow;
         }
 
@@ -87,6 +90,10 @@ namespace Blog.Application.Services.Auth
 
             await _uow.SaveChangesAsync(cancellationToken);
 
+            // IsActive / Role / AuthorId 都可能变，且停用会提升 TokenVersion ——
+            // 一律失效认证缓存（问题 3 的失效路径）
+            await _currentUserCache.InvalidateAsync(user.Id, cancellationToken);
+
             return (await ToDtosAsync([user], cancellationToken))[0];
         }
 
@@ -104,6 +111,9 @@ namespace Blog.Application.Services.Auth
 
             await _uow.SaveChangesAsync(cancellationToken);
 
+            // TokenVersion 已提升：不改密后旧 token 还能用（问题 3 的失效路径）
+            await _currentUserCache.InvalidateAsync(user.Id, cancellationToken);
+
             return (await ToDtosAsync([user], cancellationToken))[0];
         }
 
@@ -116,6 +126,9 @@ namespace Blog.Application.Services.Auth
 
             user.SetActive(false);
             await _uow.SaveChangesAsync(cancellationToken);
+
+            // SetActive(false) 提升了 TokenVersion：失效认证缓存，立即踢下线（问题 3 的失效路径）
+            await _currentUserCache.InvalidateAsync(user.Id, cancellationToken);
         }
 
         // ---------------------------------------------------------------- helpers

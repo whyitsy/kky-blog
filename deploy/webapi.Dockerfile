@@ -45,13 +45,33 @@ RUN dotnet publish Blog.WebApi/Blog.WebApi.csproj \
 # ────────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
+# ────────────────────────────────────────────────────────────────
+# 构建版本信息（CI 用 --build-arg 注入，见 .github/workflows/ci.yml）
+#
+# 为什么必须走 build-arg、不能让 MSBuild 自己读 git：
+#   本镜像的构建上下文只 COPY 了 Blog.Backend/，**.git 根本不在镜像里** ——
+#   MSBuild 的 SourceRevisionId 拿不到任何东西。
+#
+# ⚠️ ARG 必须在**使用它的那个阶段**重新声明。只在 build 阶段声明的话
+#   runtime 阶段看不到 —— 多阶段构建的常见坑。
+#
+# 三个值进来后落到 ENV，应用启动时由 BuildInfoProvider 读成
+# GET /api/version 的返回内容；同时写一份 /app/version 便于人工在容器里 cat。
+# ────────────────────────────────────────────────────────────────
+ARG VERSION=local
+ARG GIT_SHA=
+ARG BUILD_TIME=
+
 # ASPNETCORE_ENVIRONMENT=Production 有两个作用：
 #   1. 加载 appsettings.Production.json（而不是 Development）
 #   2. Program.cs 里 `if (IsDevelopment()) app.MapOpenApi()` 不会执行 —— 生产不暴露 OpenAPI
 # ASPNETCORE_HTTP_PORTS=8080：容器内监听端口。用非 443/80 端口是为了
 #   让**无 root 用户也能绑定**（Linux 下 <1024 端口需要特权）。
 ENV ASPNETCORE_ENVIRONMENT=Production \
-    ASPNETCORE_HTTP_PORTS=8080
+    ASPNETCORE_HTTP_PORTS=8080 \
+    VERSION=${VERSION} \
+    GIT_SHA=${GIT_SHA} \
+    BUILD_TIME=${BUILD_TIME}
 
 WORKDIR /app
 
@@ -74,7 +94,11 @@ COPY --from=build /app/publish ./
 # .NET 8+ 官方镜像内置了非 root 用户 app（UID 1654）。
 # **不要用 root 跑应用**：一旦被拿下，攻击者在容器内就是 root。
 # 注意 chown 必须在 USER app **之前**执行。
+#
+# /app/version 只是一份**给人看**的副本（`docker exec ... cat /app/version`）；
+# 应用真正读的是上面那三个环境变量。
 RUN mkdir -p /app/media /app/logs \
+ && printf 'VERSION=%s\nGIT_SHA=%s\nBUILD_TIME=%s\n' "$VERSION" "$GIT_SHA" "$BUILD_TIME" > /app/version \
  && chown -R app:app /app
 
 USER app

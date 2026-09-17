@@ -75,7 +75,23 @@ namespace Blog.WebApi.Controllers
             });
         }
 
-        /// <summary>读取文件（如 /api/files/2026/09/xxx.png），命中时下发长缓存</summary>
+        /// <summary>
+        /// 读取文件（如 /api/files/2026/09/xxx.png），命中时下发长缓存。
+        ///
+        /// <para><b>为什么这里也抛异常，而不是 return NotFound(...)</b></para>
+        /// 这正是「能在业务代码里执行 → 一律 throw」这条规范的边界用例（docs/02 §4.2）：
+        /// 本方法返回 <c>IActionResult</c>，看起来"只能 return"。但失败路径**是业务代码**——
+        /// 它就在 Action 里面，有完整的调用栈可抛。
+        ///
+        /// 之前写成 <c>return NotFound(ApiResponse.Fail(...))</c> 有真实的坏处：
+        /// HTTP 状态是 404，body 里的 <c>code</c> 却是 4040 —— 同一个响应的两处
+        /// 表达"哪里错了"的方式不一致，客户端要同时看两个地方。
+        /// 抛 <see cref="BusinessException"/> 后由全局中间件统一产出
+        /// 「404 + {code:4040}」，与其它所有接口完全同构。
+        ///
+        /// 注意：**只有失败路径**改抛异常；命中文件仍然直接 return
+        /// <c>File(...)</c> —— 流式响应必须走返回值，不能被异常打断。
+        /// </summary>
         [HttpGet("{**path}")]
         public async Task<IActionResult> Get(string path, CancellationToken cancellationToken)
         {
@@ -86,7 +102,7 @@ namespace Blog.WebApi.Controllers
             // `public, max-age=86400`，于是浏览器把 404 缓存一整天：等文件补回来（或部署完成后）
             // 用户仍然长时间看到空白背景，必须手动强刷才能恢复。
             if (result is null)
-                return NotFound(ApiResponse.Fail(ErrorCodes.NotFound, "文件不存在"));
+                throw new BusinessException("文件不存在", ErrorCodes.NotFound);
 
             var (stream, contentType) = result.Value;
             Response.Headers.CacheControl = "public,max-age=86400";

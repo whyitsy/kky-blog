@@ -1,6 +1,7 @@
 using Blog.Application.Interfaces;
 using Blog.Domain.IRepository;
 using Blog.Infrastructure.Caching;
+using Blog.Infrastructure.Diagnostics;
 using Blog.Infrastructure.Files;
 using Blog.Infrastructure.Images;
 using Blog.Infrastructure.Persistence;
@@ -79,6 +80,19 @@ namespace Blog.Infrastructure
             services.AddSingleton<ITokenService, JwtTokenService>();
             services.AddScoped<ICurrentUser, HttpCurrentUser>();
 
+            // 构建版本信息（GET /api/version）。CI 用 --build-arg 把它写进
+            // 镜像的 /app/version（ENV），这里读环境变量；取不到时回退到程序集元数据。
+            services.AddSingleton(sp => new BuildInfoProvider(new BuildInfoOptions
+            {
+                Version = configuration[BuildInfoOptions.VersionVar] ?? string.Empty,
+                Commit = configuration[BuildInfoOptions.CommitVar] ?? string.Empty,
+                BuiltAt = configuration[BuildInfoOptions.BuiltAtVar] ?? string.Empty,
+            }));
+
+            // 认证路径的账号读取（带缓存）：CurrentUserResolutionMiddleware 每个带 token 的请求
+            // 都要读一次账号，只为校验存在性 / IsActive / TokenVersion。
+            // 缓存 5 分钟 + 写路径主动失效，见 ICurrentUserCache 的说明。
+            services.AddScoped<ICurrentUserCache, CurrentUserCache>();
             // 多实例 + 无 Redis 属于危险配置：限流阈值会被放大到实例数倍（见 docs/02-架构与数据模型.md §16）。
             // 在启动期显式校验并直接失败，而不是运行期静默降级。
             DeploymentGuard.Validate(configuration);

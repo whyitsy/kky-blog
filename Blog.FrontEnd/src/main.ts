@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { useThemeStore, useSearchStore } from './stores/app'
-import { useAuthStore } from './stores/auth'
+import { useAuthStore, configureAuthExpiry } from './stores/auth'
 import { configureHttp, ErrorCode, ApiError } from './api/http'
 import { typewriter } from './directives/typewriter'
 import './styles/tokens.css'
@@ -34,6 +34,19 @@ configureHttp({
       void router.replace({ name: 'login', query: returnUrl !== '/' ? { returnUrl } : {} })
     }
   },
+})
+
+// token 到期时主动跳登录页（用户停在页面上不动也能被送走）。
+// 与 onUnauthorized 的区别：这条**不依赖任何请求**，
+// 而 onUnauthorized 要等到某个 API 返回 401 才触发 —— 那时页面已经渲染出错误态了。
+configureAuthExpiry(() => {
+  if (router.currentRoute.value.meta.guestOnly === true) return
+
+  const returnUrl = router.currentRoute.value.fullPath
+  void router.replace({
+    name: 'login',
+    query: returnUrl !== '/' ? { returnUrl, reason: 'expired' } : { reason: 'expired' },
+  })
 })
 
 // 搜索弹窗的全局快捷键（Ctrl/Cmd + K）

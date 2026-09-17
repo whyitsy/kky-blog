@@ -64,8 +64,56 @@ public sealed class BlogApiFactory : WebApplicationFactory<Program>
                 // 会污染后续运行。这里直接关掉：本组测试关注的是权限/并发语义，
                 // 限流本身另有专门验证（见 docs 中的 curl 记录）。
                 ["RateLimit:Enabled"] = "false",
+
+                // ⚠️ 缓存必须与开发环境**隔离**，否则会出现极难排查的跨运行污染。
+                //
+                // 为什么必须隔离：测试库每次运行都是新建的 GUID 库（干净），
+                // 但**种子账号的 Id 是写死的**，而 Redis 里的缓存 key 由 Id 决定
+                // （blog:auth:user:v1:{id}）。于是上一次运行留下的认证快照会被这一次读到：
+                // 库里 TokenVersion=1，缓存里却是上一轮被注销测试提升过的版本
+                // → 中间件判定 "TokenVersion 不匹配" → 种子 admin 的 token 全部 401。
+                //
+                // 实测踩过：修复前整轮 220 个用例里有 52 个连环失败，且单跑某个用例却是绿的
+                // （因为单跑时 Redis 里恰好没有被污染的 key）。
+                //
+                // 用随机 db index 隔离：Redis 默认支持 16 个库，测试只碰自己那一个，
+                // 既不读开发环境的 key，也不会把开发环境的帖子列表缓存冲掉。
+                ["Cache:RedisConnection"] = BuildIsolatedRedisConnection(),
             });
         });
+    }
+
+    /// <summary>
+    /// 把开发配置里的 Redis 连接串换成一个**随机 db index**，用于测试隔离。
+    ///
+    /// 关闭 Cache（Provider 改 Memory）也能避免污染，但那样集成测试就再也覆盖不到
+    /// Redis 实现本身（缓存降级、哨兵、锁——这些只有跑 Redis 才验证得到），
+    /// 所以这里选择「换库」而不是「关掉」。
+    /// </summary>
+    private static string BuildIsolatedRedisConnection()
+    {
+        const string fallback = "localhost:6379";
+
+        // 复用 appsettings.Development.json 里的地址，避免测试与开发配置漂移
+        string baseConnection;
+        try
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Blog.Backend.slnx")))
+                dir = dir.Parent;
+
+            var settingsPath = Path.Combine(dir!.FullName, "Blog.WebApi", "appsettings.Development.json");
+            var config = new ConfigurationBuilder().AddJsonFile(settingsPath).Build();
+            baseConnection = config["Cache:RedisConnection"] ?? fallback;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            baseConnection = fallback;
+        }
+
+        // 1~15：避开 0（开发环境常用）以及 Redis 集群模式下的保留位
+        var index = Random.Shared.Next(1, 16);
+        return $"{baseConnection},defaultDatabase={index}";
     }
 
     private string BuildTestConnectionString()

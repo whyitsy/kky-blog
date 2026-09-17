@@ -7,9 +7,11 @@ using Blog.Domain.Entities;
 using Blog.Infrastructure;
 using Blog.Infrastructure.Persistence;
 using Blog.Infrastructure.Security;
+using Blog.WebApi.Authorization;
 using Blog.WebApi.HealthChecks;
 using Blog.WebApi.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -130,6 +132,29 @@ try
                 {
                     if (context.Response.HasStarted) return; // 防御性检查, 如果还没有写入响应体才修改Response
 
+                    // 403 还是 401？
+                    //
+                    // PolicyEvaluator 默认按「用户是否已认证」决定 Forbid / Challenge。
+                    // 但本项目的 token 是无状态 JWT：注销 / 改密 / 停用后，旧 token 的签名
+                    // 与有效期**依然合法**，框架因此认为「已认证」，授权失败一律走 Forbid。
+                    // 而 CurrentUserResolutionMiddleware 已经查明身份为什么不被接受
+                    // （账号不存在 / 已停用 / tv 不匹配）—— 那属于**凭据无效**，语义是 401，
+                    // 客户端也据此才会清理登录态并跳登录页（问题 6）。
+                    //
+                    // 没有该标记 = 身份有效但角色/权限不足，才是真正的 403。
+                    var credentialRejected = context.HttpContext.Items
+                        .ContainsKey(CurrentUserResolutionMiddleware.RejectionKey);
+
+                    if (credentialRejected)
+                    {
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        context.Response.ContentType = "application/json; charset=utf-8";
+                        await context.Response.WriteAsync(JsonSerializer.Serialize(
+                            ApiResponse.Fail(ErrorCodes.Unauthorized, "登录状态已失效，请重新登录"),
+                            UnifiedJsonOptions.Value));
+                        return;
+                    }
+
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     context.Response.ContentType = "application/json; charset=utf-8";
                     await context.Response.WriteAsync(JsonSerializer.Serialize(
@@ -140,13 +165,30 @@ try
         });
 
     // 授权策略：两档角色（见 docs/02-架构与数据模型.md §10.1）
+    //
+    // 每个策略都叠加 RequireResolvedUserRequirement：角色来自 JWT claim，
+    // 而 JWT 是无状态的（注销/改密后旧 token 在到期前依然签名有效）。
+    // 加上这个 requirement 后，「token 已被作废」在授权阶段就是 401，
+    // 而不是静默降级成匿名再让各业务分支兜底（问题 6，见 RequireResolvedUser.cs）。
+    // 处理器依赖 ICurrentUser（每个请求一份解析结果），因此必须是 Scoped 而不是 Singleton，
+    // 否则 DI 校验会拒绝启动：「Cannot consume scoped service from singleton」。
+    builder.Services.AddScoped<IAuthorizationHandler, RequireResolvedUserHandler>();
+
     builder.Services.AddAuthorization(options =>
     {
-        options.AddPolicy(AuthorizationPolicies.AdminOnly, policy =>
-            policy.RequireRole(nameof(UserRole.Admin)));
+        options.AddPolicy(AuthorizationPolicies.AdminOnly, policy => policy
+            .RequireRole(nameof(UserRole.Admin))
+            .AddRequirements(new RequireResolvedUserRequirement()));
 
-        options.AddPolicy(AuthorizationPolicies.ContentWriter, policy =>
-            policy.RequireRole(nameof(UserRole.Admin), nameof(UserRole.Author)));
+        options.AddPolicy(AuthorizationPolicies.ContentWriter, policy => policy
+            .RequireRole(nameof(UserRole.Admin), nameof(UserRole.Author))
+            .AddRequirements(new RequireResolvedUserRequirement()));
+
+        // 无角色要求的「只要登录」策略（/api/auth/me、/api/auth/logout 用）。
+        // 之前它们写裸 [Authorize]，会落到 DefaultPolicy —— 那样就没法稳定地附加
+        // 本项目的 requirement（改 DefaultPolicy 会影响所有兜底授权）。
+        options.AddPolicy(AuthorizationPolicies.Authenticated, policy =>
+            policy.AddRequirements(new RequireResolvedUserRequirement()));
     });
 
     // 前端开发服务器跨域（Vue3 Vite 默认 5173，可按需扩展）
@@ -195,6 +237,41 @@ try
 
     app.UseMiddleware<ExceptionHandlingMiddleware>();
 
+    // ---------------------------------------------------------------- 路由阶段失败的兜底（问题 1）
+    //
+    // InvalidModelStateResponseFactory（见上方）只覆盖「进了 Action 之后」的模型校验。
+    // 而**路由匹配阶段**的失败更早：{id:guid} 之类的路由约束不匹配时，请求根本到不了
+    // Action/中间件，ASP.NET Core 直接写一个**空 body、无 Content-Type** 的 404。
+    // 实测（修复前）：GET /api/posts/not-a-guid 与 GET /api/totally/wrong/path
+    // 都是 "HTTP 404 | Content-Type='' | Body=<空>"。
+    //
+    // 于是 docs/02 §4.1 承诺的「所有接口（含错误）返回 {code,message,data}」在路由阶段破功，
+    // 前端 http.ts 只能退回「按 HTTP 状态码硬编码兜底」。
+    //
+    // 这里用状态码页兜底：凡是状态码 ≥ 400 且**响应体为空**的响应，一律补写成统一结构。
+    //   - 只在 body 为空时动手 -> 不会覆盖 JwtBearer OnChallenge/OnForbidden、
+    //     ExceptionHandlingMiddleware、限流中间件已经写好的统一体
+    //   - 刻意**不引入 ProblemDetails**：那会与本项目既有的 ApiResponse 并存成两套结构，
+    //     正是这次要消灭的问题
+    //   - 位置：必须在 UseRouting 之后（否则没有 Endpoint 可匹配），
+    //     且在 UseAuthentication 之前即可 —— 认证失败时 OnChallenge 会自己写 body，
+    //     这里因为 body 非空而自动跳过
+    app.UseStatusCodePages(async statusCodeContext =>
+    {
+        var response = statusCodeContext.HttpContext.Response;
+
+        // 已经写过 body 的（业务统一体、JwtBearer 挑战响应、限流响应）一律不碰。
+        // 判断依据是 HasStarted —— 写过任何内容都会让响应开始，
+        // 比 ContentLength 可靠（框架写入时不一定设置 ContentLength）。
+        if (response.HasStarted) return;
+
+        var (code, message) = DescribeHttpError(response.StatusCode);
+
+        response.ContentType = "application/json; charset=utf-8";
+        await response.WriteAsync(JsonSerializer.Serialize(
+            ApiResponse.Fail(code, message), UnifiedJsonOptions.Value));
+    });
+
     // 令牌桶限流（规则见 appsettings RateLimit 节，Redis 故障自动降级内存桶）
     app.UseMiddleware<RateLimitingMiddleware>();
 
@@ -223,7 +300,7 @@ try
 
     app.Run();
 }
-catch (Exception ex) when (ex is not Microsoft.Extensions.Hosting.HostAbortedException)
+catch (Exception ex) when (ex is not HostAbortedException)
 {
     // HostAbortedException 为 EF Core 设计期工具（dotnet-ef）正常中止宿主，不算启动失败
     Log.Fatal(ex, "应用启动失败");
@@ -233,6 +310,28 @@ finally
     Log.CloseAndFlush();
 }
 
+/// <summary>
+/// 把「路由阶段失败」的 HTTP 状态码翻译成统一响应体的 <c>{code,message}</c>（问题 1）。
+///
+/// 与 <c>ExceptionHandlingMiddleware.MapStatusCode</c>（业务码 → HTTP）方向相反，
+/// 这里由框架给的状态码反推业务码。刻意只在少数状态码上做专门处理，
+/// 其余统一落到 4001 —— 与业务码映射表「未列出的业务码一律落 400」的兜底精神一致，
+/// 不为了好看而新增错误码。
+///
+/// 文案一律中性、不暴露内部结构（不出现路由模板、端点名、堆栈等）。
+/// </summary>
+static (int Code, string Message) DescribeHttpError(int statusCode) => statusCode switch
+{
+    StatusCodes.Status401Unauthorized => (ErrorCodes.Unauthorized, "未认证或登录已过期，请重新登录"),
+    StatusCodes.Status403Forbidden => (ErrorCodes.Forbidden, "无权限执行该操作"),
+    StatusCodes.Status404NotFound => (ErrorCodes.NotFound, "请求的资源不存在"),
+    StatusCodes.Status405MethodNotAllowed => (ErrorCodes.InvalidArgument, "该资源不支持此请求方法"),
+    StatusCodes.Status409Conflict => (ErrorCodes.ConcurrencyConflict, "数据已被其他请求修改，请刷新后重试"),
+    StatusCodes.Status413PayloadTooLarge => (ErrorCodes.PayloadTooLarge, "请求体过大"),
+    StatusCodes.Status429TooManyRequests => (ErrorCodes.RateLimited, "请求过于频繁，请稍后再试"),
+    _ => (ErrorCodes.InvalidArgument, "请求无法处理，请检查请求路径与参数"),
+};
+
 /// <summary>授权策略名（控制器与 Program 共用，避免魔法字符串不一致）</summary>
 internal static class AuthorizationPolicies
 {
@@ -241,6 +340,12 @@ internal static class AuthorizationPolicies
 
     /// <summary>能写内容的人：管理员或作者</summary>
     public const string ContentWriter = "ContentWriter";
+
+    /// <summary>
+    /// 只要「身份有效」即可，不限定角色（/api/auth/me、/api/auth/logout）。
+    /// 等价于裸 <c>[Authorize]</c>，但能稳定附加 RequireResolvedUserRequirement。
+    /// </summary>
+    public const string Authenticated = "Authenticated";
 }
 
 /// <summary>统一响应体序列化选项（与 ExceptionHandlingMiddleware 保持一致：camelCase）</summary>

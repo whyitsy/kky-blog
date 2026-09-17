@@ -136,6 +136,13 @@ public sealed class AuthorizationMatrixTests
         var read = await _api.CallAsync<object>(HttpMethod.Get, "/api/files/does-not-exist.png");
         Assert.Equal(HttpStatusCode.NotFound, read.Status);
 
+        // 断言的不能只是「404」：HTTP 状态码与 body 里的 code 必须表达同一件事。
+        // 修复前这里是 return NotFound(ApiResponse.Fail(4040, ...)) —— 状态码 404 与
+        // body 里的 code 是两套写法；现在业务代码抛 BusinessException，
+        // 由全局中间件统一产出（问题 2 建立的规范）。
+        Assert.Equal(Codes.NotFound, read.Code);
+        Assert.Equal("文件不存在", read.Message);
+
         // 匿名上传 → 401
         var anonUpload = await UploadAsync(null);
         Assert.Equal(HttpStatusCode.Unauthorized, anonUpload.StatusCode);

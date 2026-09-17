@@ -27,5 +27,15 @@ namespace Blog.Infrastructure.Security
         public UserRole? Role => Current?.Role;
 
         public Guid? AuthorId => Current?.AuthorId;
+
+        /// <summary>
+        /// 身份被拒的原因（未过期的 token 但账号停用 / tv 不匹配）。
+        /// 完全匿名时为 null —— 那种情况由 JwtBearer 直接 Challenge。
+        /// </summary>
+        public CredentialRejectionReason? CredentialRejection =>
+            _httpContextAccessor.HttpContext?.Items[CurrentUserResolutionMiddleware.RejectionKey]
+                is CredentialRejectionReason reason
+                ? reason
+                : null;
     }
 }

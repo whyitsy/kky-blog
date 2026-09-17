@@ -8,10 +8,11 @@
 # 五个作业。前四个互不依赖，**并行**运行：
 #   hygiene   行尾检查（最快，秒级失败）
 #   frontend  类型检查 + 构建
-#   backend   格式检查 + 编译 + 198 项测试（含 79 项需要真实 PostgreSQL 的集成测试）+ 覆盖率
+#   backend   格式检查 + 编译 + 全部测试（含需要真实 PostgreSQL 的集成测试）+ 覆盖率
 #   security  依赖漏洞扫描（NuGet + npm，**只报告不阻断**）
-# 第五个（publish）只在**合并进 main 之后**跑：把应用镜像推到 GHCR，
-# 让服务器 `docker compose pull` 就能更新（详见该作业的注释）。
+# 第五个（publish）只在**合并进 main 之后**、或**推送 v* 版本 tag 时**跑：
+# 把应用镜像推到 GHCR，让服务器 `docker compose pull` 就能更新（详见该作业的注释）。
+# 版本号来自 git tag，镜像 tag 规则与回滚流程见 docs/05 §8.7.1。
 #
 # 设计依据与原理讲解：learn/02-CI-CD实践.md
 # 覆盖率为什么必须排除迁移代码：Blog.Backend/coverage.runsettings 的注释
@@ -22,6 +23,9 @@ name: CI
 on:
   push:
     branches: [main]
+    # 版本 tag（v2026.09.17、v1.2.3 都可以）也触发流水线。
+    # 打 tag 即「发布」：publish 作业会把镜像额外打上 <tag>，并**只在这时**更新 :latest。
+    tags: ['v*']
   pull_request:
     branches: [main]
   # 允许在 Actions 页面手动触发（排查问题、重跑时用）
@@ -211,7 +215,9 @@ jobs:
       - name: 编译（Release）
         run: dotnet build Blog.Backend/Blog.Backend.slnx --no-restore --configuration Release
 
-      # 跑全部 198 项（79 集成 + 116 单元 + 3 统一响应体契约）。
+      # 跑全部测试（单元 + 集成 + 契约测试）。**具体条数刻意不写在这里** ——
+      # 每加一个用例就过时一次，而文档规范（docs/00 §3）明确禁止写死会变的数字。
+      # 实时条数以作业摘要与测试输出为准。
       #
       # 覆盖率**只产出报告、不设阈值**：一开始就卡阈值会逼人写垃圾测试来凑数（learn/02 §5.2）。
       #
@@ -482,9 +488,10 @@ jobs:
     timeout-minutes: 30
     # PR 里不推：会把 registry 塞满永远不会合并的版本。
     # 允许 workflow_dispatch 是为了能手动验证这个作业本身。
+    # 版本 tag 推送同样要进这里 —— 那正是「发布」动作。
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
     permissions:
       contents: read
       packages: write
@@ -494,6 +501,37 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      # ────────────────────────────────────────────────────────────────
+      # 版本号解析：把「这次构建是什么版本」算成环境变量，供后面注入镜像。
+      #
+      # 三种情况：
+      #   tag 推送        -> VERSION = tag 名（如 v2026.09.17），并更新 :latest
+      #   main 分支推送   -> VERSION = v0.0.0-main.<短sha>，**不动** :latest
+      #   手动触发        -> 同 main 分支推送
+      #
+      # 为什么 main 分支不更新 :latest：
+      #   `latest` 只有在「打 tag 发布」时才移动，它才等于「最新正式版」这个可靠含义。
+      #   否则它只是一个会飘的别名，说不清线上跑的是哪一版（docs/05 §8.9）。
+      #   日常上 main 的构建仍可用不可变的 :<sha> 部署，能力没有任何损失。
+      # ────────────────────────────────────────────────────────────────
+      - name: 解析版本号
+        id: version
+        run: |
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            VERSION="v0.0.0-main.${SHORT_SHA}"
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          # 构建时间取此刻（UTC ISO 8601）。不要用 github.event.repository.updated_at ——
+          # 那是仓库设置被改的时间，与本次构建毫无关系。
+          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          echo "解析结果：VERSION=${VERSION}"
 
       - uses: docker/setup-buildx-action@v4
 
@@ -506,21 +544,65 @@ jobs:
           # 不需要额外配 PAT（少一个会过期的凭据要维护）。
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ⚠️ 主 tag 用 `github.sha`（**不可变**），另外打一个 `latest` 只为肉眼方便。
-      #    **部署脚本绝不要用 latest** —— 那是个会移动的标签，出事时说不清
-      #    线上跑的是哪一版（docs/05 §8.9 用的是同一条理由）。
+      # 镜像 tag 由 metadata-action 统一生成，而不是手写 `tags:` 多行字符串。
+      #
+      # 为什么不用手写：多行 tags 里**不能有空行**，而「刚好在发布时才加 :latest」
+      # 需要条件判断。用 `a && b || c` 拼出来的假 tag 会被当成一个**真的** tag 推上去，
+      # 只能靠塞一个不存在的名字来"抵消"，非常脆。metadata-action 的
+      # `type=raw,value=latest,enable=...` 天生就是干这个的。
+      - name: 生成镜像 tag
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}-webapi
+          # latest=auto：推版本 tag 时才把 :latest 指过去；
+          # 日常 main 分支构建**不动** :latest，它才等于「最新正式版」这个可靠含义。
+          flavor: latest=auto
+          tags: |
+            # 不可变身份：回滚永远认它
+            type=sha,format=long
+            # 人读的版本号：tag 推送时用 tag 名，否则用 v0.0.0-main.<短sha>
+            type=raw,value=${{ steps.version.outputs.version }}
+            # 只有打 tag 发布才移动 :latest
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+          labels: |
+            org.opencontainers.image.title=blog-webapi
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+
+      # build-args 把版本/SHA/构建时间注入镜像：runtime 阶段会写进 /app/version，
+      # 应用启动时读成环境变量，由 GET /api/version 返回。
+      # 没有这一步，「线上跑的是哪一版」就还得靠 docker inspect 反推。
       - name: 构建并推送 webapi
         uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/webapi.Dockerfile
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}-webapi:${{ github.sha }}
-            ghcr.io/${{ github.repository }}-webapi:latest
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_TIME=${{ steps.version.outputs.built_at }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           # scope 要分开：两个镜像共用一份 gha 缓存会互相冲掉
           cache-from: type=gha,scope=webapi
           cache-to: type=gha,mode=max,scope=webapi
+
+      # nginx 用同一套 tag 规则（同一个版本号 / 同一个 sha / 同样只在发布时移动 latest），
+      # 这样「前后端同版本」是一个可以直接观察的事实，不用两边分别对。
+      - name: 生成 nginx 镜像 tag
+        id: meta-nginx
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}-nginx
+          flavor: latest=auto
+          tags: |
+            type=sha,format=long
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+          labels: |
+            org.opencontainers.image.title=blog-nginx
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
 
       - name: 构建并推送 nginx
         uses: docker/build-push-action@v7
@@ -528,9 +610,8 @@ jobs:
           context: .
           file: deploy/nginx.Dockerfile
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}-nginx:${{ github.sha }}
-            ghcr.io/${{ github.repository }}-nginx:latest
+          tags: ${{ steps.meta-nginx.outputs.tags }}
+          labels: ${{ steps.meta-nginx.outputs.labels }}
           cache-from: type=gha,scope=nginx
           cache-to: type=gha,mode=max,scope=nginx
 
@@ -539,16 +620,28 @@ jobs:
           {
             echo '## 已发布镜像到 GHCR'
             echo
-            echo '| 镜像 | tag（不可变，回滚就用它） |'
-            echo '|---|---|'
-            echo "| webapi | \`ghcr.io/${{ github.repository }}-webapi:${{ github.sha }}\` |"
-            echo "| nginx  | \`ghcr.io/${{ github.repository }}-nginx:${{ github.sha }}\` |"
+            echo "**版本号**：\`${{ steps.version.outputs.version }}\`　"
+            echo "**提交**：\`${{ github.sha }}\`　"
+            echo "**构建时间**：\`${{ steps.version.outputs.built_at }}\`"
+            echo
+            echo '| 镜像 | tag（不可变，回滚就用它） | 版本号 tag（人读） |'
+            echo '|---|---|---|'
+            echo "| webapi | \`ghcr.io/${{ github.repository }}-webapi:${{ github.sha }}\` | \`:${{ steps.version.outputs.version }}\` |"
+            echo "| nginx  | \`ghcr.io/${{ github.repository }}-nginx:${{ github.sha }}\` | \`:${{ steps.version.outputs.version }}\` |"
+            echo
+            if [[ '${{ startsWith(github.ref, 'refs/tags/v') }}' == 'true' ]]; then
+              echo '> 🏷️ 这是一次**版本发布**：`:latest` 已指向本版本。'
+            else
+              echo '> ℹ️ 这是 main 分支的日常构建，**没有移动 `:latest`** ——'
+              echo '> `:latest` 只在打版本 tag 时更新，这样它才等于"最新正式版"。'
+            fi
             echo
             echo '### 服务器更新'
             echo '```bash'
             echo "bash tools/deploy/server-update.sh ${{ github.sha }}"
             echo '```'
-            echo '> 这个 sha 就是本次合并后的提交 —— **线上跑的哪一版从此有据可查**。'
+            echo '> 用 **sha**（不可变），不要用 `:latest`。'
+            echo '> 部署完可以确认线上版本：`curl -s https://<站点>/api/version`。'
           } >> "$GITHUB_STEP_SUMMARY"
 
       # ⚠️ 光推镜像**不够**：GHCR 里只有 webapi / nginx 两个镜像。
