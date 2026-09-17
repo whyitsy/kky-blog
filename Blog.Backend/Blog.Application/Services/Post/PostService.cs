@@ -245,13 +245,22 @@ namespace Blog.Application.Services.Post
         }
 
         /// <summary>
-        /// 能否读取未发布文章（草稿）：仅管理员与**创建者账号**。
-        /// 与 <see cref="EnsureCanManage"/> 同理，只认 CreatedByUserId。
+        /// 能否读取未发布文章（草稿）：**必须已认证**，且为管理员或**创建者账号**。
+        ///
+        /// <para><b>为什么要显式写 <c>IsAuthenticated</c>（问题 6）：</b></para>
+        /// 之前的写法是 <c>IsAdmin || (CreatedByUserId.HasValue &amp;&amp; CreatedByUserId == UserId)</c>。
+        /// 未认证时 <c>UserId</c> 为 null，<c>Guid? == null</c> 求值为 false，所以它**碰巧**也拦住了匿名 ——
+        /// 但这是「靠 null 比较的巧合」而不是「靠意图」，读代码的人无法一眼确认，
+        /// 重构时（例如把比较改成 <c>Equals</c>、或给 UserId 一个默认值）会无声地失效。
+        /// 这里把前提写成显式条件，让意图可读、可被测试守住。
+        ///
+        /// 与 <see cref="EnsureCanManage"/> 同理，只认 CreatedByUserId（账号维度），不认 AuthorId。
         /// 注意：不可读时对外表现为 404（而不是 403），避免通过状态码探测草稿是否存在。
         /// </summary>
         private bool CanReadUnpublished(PostDetailDto detail) =>
-            _currentUser.IsAdmin ||
-            (detail.CreatedByUserId.HasValue && detail.CreatedByUserId == _currentUser.UserId);
+            _currentUser.IsAuthenticated
+            && (detail.CreatedByUserId.HasValue && detail.CreatedByUserId == _currentUser.UserId
+                || _currentUser.IsAdmin);
 
         private static int ValidateVersion(int version)
         {

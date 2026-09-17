@@ -55,13 +55,15 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
 <template>
   <div class="admin-shell">
     <aside class="admin-side">
-      <div class="admin-brand">
+      <!-- 品牌区可点击回首页：与 AuthorLayout 的 .brand / 前台导航条保持一致。
+           后台是全屏独立布局，没有前台导航条，这里是回到站点的唯一入口。 -->
+      <RouterLink to="/" class="admin-brand">
         <SiteLogo :size="34" />
         <span class="brand-text">
           <strong>{{ site.config?.siteName ?? "kky's blog" }}</strong>
           <em>管理后台</em>
         </span>
-      </div>
+      </RouterLink>
 
       <nav class="admin-nav">
         <RouterLink
@@ -152,6 +154,13 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
   align-items: center;
   gap: var(--space-3);
   padding: 0 var(--space-3);
+  /* 它是 <RouterLink>：去掉链接下划线，并给一个可点击的反馈 */
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--transition-fast);
+}
+.admin-brand:hover {
+  opacity: 0.8;
 }
 
 .brand-text {

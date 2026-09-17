@@ -11,9 +11,9 @@ namespace Blog.WebApi.Controllers
     public class PostsController : ControllerBase
     {
         private readonly IPostService _posts;
-        private readonly Blog.Application.Interfaces.ICurrentUser _currentUser;
+        private readonly Application.Interfaces.ICurrentUser _currentUser;
 
-        public PostsController(IPostService posts, Blog.Application.Interfaces.ICurrentUser currentUser)
+        public PostsController(IPostService posts, Application.Interfaces.ICurrentUser currentUser)
         {
             _posts = posts;
             _currentUser = currentUser;
@@ -60,7 +60,7 @@ namespace Blog.WebApi.Controllers
         public async Task<ApiResponse<PostDetailDto>> GetDetail(Guid id, CancellationToken cancellationToken)
         {
             var detail = await _posts.GetDetailAsync(id, cancellationToken)
-                ?? throw new Blog.Application.Common.Exceptions.BusinessException("文章不存在", ErrorCodes.NotFound);
+                ?? throw new Application.Common.Exceptions.BusinessException("文章不存在", ErrorCodes.NotFound);
             return ApiResponse<PostDetailDto>.Ok(detail);
         }
 
@@ -75,7 +75,7 @@ namespace Blog.WebApi.Controllers
         public async Task<ApiResponse<PostDetailDto>> GetDetailReadonly(Guid id, CancellationToken cancellationToken)
         {
             var detail = await _posts.GetDetailReadonlyAsync(id, cancellationToken)
-                ?? throw new Blog.Application.Common.Exceptions.BusinessException("文章不存在", ErrorCodes.NotFound);
+                ?? throw new Application.Common.Exceptions.BusinessException("文章不存在", ErrorCodes.NotFound);
             return ApiResponse<PostDetailDto>.Ok(detail);
         }
 
@@ -108,6 +108,7 @@ namespace Blog.WebApi.Controllers
             return ApiResponse<PostDetailDto>.Ok(created);
         }
 
+        /// <summary>更新文章</summary>
         [HttpPut("{id:guid}")]
         [Authorize(Policy = "ContentWriter")]
         public async Task<ApiResponse<PostDetailDto>> Update(Guid id, [FromBody] UpdatePostRequest request, CancellationToken cancellationToken)
@@ -129,6 +130,7 @@ namespace Blog.WebApi.Controllers
             return ApiResponse<PostDetailDto>.Ok(updated);
         }
 
+        /// <summary>删除文章</summary>
         [HttpDelete("{id:guid}")]
         [Authorize(Policy = "ContentWriter")]
         public async Task<ApiResponse<object?>> Delete(Guid id, [FromQuery] int version, CancellationToken cancellationToken)

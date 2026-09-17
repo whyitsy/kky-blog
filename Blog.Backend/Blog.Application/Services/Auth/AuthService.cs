@@ -13,6 +13,7 @@ namespace Blog.Application.Services.Auth
         private readonly IPasswordHasher _passwordHasher;
         private readonly ITokenService _tokenService;
         private readonly ICurrentUser _currentUser;
+        private readonly ICurrentUserCache _currentUserCache;
         private readonly IUnitOfWork _uow;
 
         public AuthService(
@@ -21,6 +22,7 @@ namespace Blog.Application.Services.Auth
             IPasswordHasher passwordHasher,
             ITokenService tokenService,
             ICurrentUser currentUser,
+            ICurrentUserCache currentUserCache,
             IUnitOfWork uow)
         {
             _users = users;
@@ -28,6 +30,7 @@ namespace Blog.Application.Services.Auth
             _passwordHasher = passwordHasher;
             _tokenService = tokenService;
             _currentUser = currentUser;
+            _currentUserCache = currentUserCache;
             _uow = uow;
         }
 
@@ -70,6 +73,10 @@ namespace Blog.Application.Services.Auth
             var user = await RequireCurrentUserAsync(cancellationToken);
             user.LogoutAllDevices();
             await _uow.SaveChangesAsync(cancellationToken);
+
+            // TokenVersion 已提升，必须让认证缓存失效 ——
+            // 否则当前 token 在缓存 TTL（5 分钟）内仍会被判为有效（问题 3 的失效路径）。
+            await _currentUserCache.InvalidateAsync(user.Id, cancellationToken);
         }
 
         private async Task<User> RequireCurrentUserAsync(CancellationToken cancellationToken)

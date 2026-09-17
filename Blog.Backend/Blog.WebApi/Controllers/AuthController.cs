@@ -37,7 +37,7 @@ namespace Blog.WebApi.Controllers
 
         /// <summary>当前登录用户</summary>
         [HttpGet("me")]
-        [Authorize]
+        [Authorize(Policy = AuthorizationPolicies.Authenticated)]
         public async Task<ApiResponse<CurrentUserDto>> Me(CancellationToken cancellationToken)
         {
             var result = await _auth.GetCurrentAsync(cancellationToken);
@@ -49,7 +49,7 @@ namespace Blog.WebApi.Controllers
         /// 因为 JWT 本身无法主动失效（见 learn/01-后端知识地图.md §8.3）。
         /// </summary>
         [HttpPost("logout")]
-        [Authorize]
+        [Authorize(Policy = AuthorizationPolicies.Authenticated)]
         public async Task<ApiResponse<object?>> Logout(CancellationToken cancellationToken)
         {
             await _auth.LogoutAsync(cancellationToken);

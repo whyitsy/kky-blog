@@ -4,6 +4,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      版本号不在这里配 —— 见解决方案根的 Directory.Build.props。
+      它是「整个应用」的属性，写在单个 csproj 里会导致读取方
+      （BuildInfoProvider 住在 Blog.Infrastructure）读到别的程序集的值。
+    -->
   </PropertyGroup>
 
   <ItemGroup>

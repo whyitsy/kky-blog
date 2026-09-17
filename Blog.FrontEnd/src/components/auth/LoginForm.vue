@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -15,6 +15,13 @@ const password = ref('')
 const showPassword = ref(false)
 const submitting = ref(false)
 const errorMsg = ref('')
+
+// 被守卫/到期跳转过来时带 reason=expired：给一句明确解释，
+// 否则用户只会看到「莫名其妙回到登录页」。
+const expiredNotice = computed(() => router.currentRoute.value.query.reason === 'expired')
+const notice = computed(() =>
+  expiredNotice.value ? '登录状态已过期，请重新登录后继续。' : '',
+)
 
 const title = '登录'
 // 登录前无法知道账号角色，因此副标题不区分身份
@@ -66,6 +73,7 @@ async function onSubmit() {
       </header>
 
       <p v-if="errorMsg" class="err-banner">{{ errorMsg }}</p>
+      <p v-else-if="notice" class="notice-banner">{{ notice }}</p>
 
       <label class="field">
         <span class="label">邮箱</span>
@@ -163,6 +171,15 @@ async function onSubmit() {
 .err-banner {
   background: color-mix(in srgb, #e35151 12%, transparent);
   color: #e35151;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+}
+
+/* 「登录已过期」用中性提示色：它是正常的时间流逝，不是用户做错了什么 */
+.notice-banner {
+  background: color-mix(in srgb, var(--brand-500) 12%, transparent);
+  color: var(--brand-500);
   padding: var(--space-3);
   border-radius: var(--radius-sm);
   font: var(--text-body-sm);

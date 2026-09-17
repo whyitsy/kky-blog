@@ -81,4 +81,98 @@ public sealed class UnifiedErrorResponseTests
         using var doc = JsonDocument.Parse(raw);
         Assert.Equal(Codes.Ok, doc.RootElement.GetProperty("code").GetInt32());
     }
+
+    // ---------------------------------------------------------------- 路由阶段的失败（问题 1）
+
+    /// <summary>
+    /// 路由匹配阶段的失败也必须有统一响应体。
+    ///
+    /// <para><b>为什么这一组之前是空档</b></para>
+    /// <c>InvalidModelStateResponseFactory</c> 只覆盖「进了 Action 之后的模型校验」。
+    /// 而路由约束（<c>{id:guid}</c>）在**更早**的 Endpoint 选择阶段就把请求判死了，
+    /// 走的是 ASP.NET Core 默认的空 404 —— 没有 Content-Type、没有 body。
+    /// 前端 <c>http.ts</c> 只能靠 HTTP 状态码兜底，于是「所有接口都返回统一体」这句话
+    /// 在路由阶段并不成立。
+    ///
+    /// <para><b>修复方式</b></para>
+    /// <c>UseStatusCodePages</c> 全局兜底（Program.cs）：凡是状态码 ≥400 且**响应体为空**的响应，
+    /// 一律补写成 <c>{code,message,data}</c>。刻意不引入 ProblemDetails ——
+    /// 那会与本项目的 ApiResponse 并存成两套结构，正是这个测试要防的事。
+    /// </summary>
+    [Theory]
+    // 路由约束不匹配：id 不是 GUID -> 该路由不匹配 -> 404
+    [InlineData("/api/posts/not-a-guid")]
+    [InlineData("/api/authors/not-a-guid")]
+    [InlineData("/api/users/not-a-guid")]
+    [InlineData("/api/collections/id/not-a-guid")]
+    // 完全不存在的路径
+    [InlineData("/api/totally/wrong/path")]
+    [InlineData("/api/posts/not-a-guid/nope")]
+    public async Task 路由无法匹配_返回统一响应体(string path)
+    {
+        var res = await _api.SendAsync(HttpMethod.Get, path);
+        var raw = await res.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+
+        Assert.False(string.IsNullOrWhiteSpace(raw),
+            $"路由 404 不应是空响应体（path={path}）—— 客户端无法解析成 {{code,message,data}}");
+
+        AssertUnifiedErrorBody(raw, Codes.NotFound);
+    }
+
+    /// <summary>
+    /// 路由约束的「早拒绝」语义值得钉住：<c>{id:guid}</c> 在**路由匹配阶段**就不匹配非法 id，
+    /// 因此请求根本走不到 <c>[Authorize]</c>，得到的是 404（而不是 401）。
+    ///
+    /// 这与「需登录的路径带非法 id」看起来矛盾，其实顺序很清晰：
+    ///   路由约束不匹配 → 404（没有 Endpoint，谈不上认证/授权）
+    ///   路由匹配但未认证 → 401
+    ///   路由匹配、已认证但角色不足 → 403
+    ///
+    /// 也正因为约束在这么早的阶段拒绝，它产出的 404 原先没有任何 body ——
+    /// 这正是 <c>UseStatusCodePages</c> 兜底要解决的问题。
+    /// </summary>
+    [Fact]
+    public async Task 需登录的路径带非法id_路由约束先拒绝_返回404统一响应体()
+    {
+        var res = await _api.SendAsync(HttpMethod.Get, "/api/posts/not-a-guid/readonly");
+        var raw = await res.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+        AssertUnifiedErrorBody(raw, Codes.NotFound);
+    }
+
+    /// <summary>
+    /// 对照：路由匹配 + 未认证时是 401（而不是 404）。
+    /// 用来证明上一条的 404 确实来自路由约束，而不是「认证失败被伪装成 404」。
+    /// </summary>
+    [Fact]
+    public async Task 需登录的路径_合法id但未认证_返回401统一响应体()
+    {
+        var res = await _api.SendAsync(
+            HttpMethod.Get, $"/api/posts/{Guid.NewGuid()}/readonly");
+        var raw = await res.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+        AssertUnifiedErrorBody(raw, Codes.Unauthorized);
+    }
+
+    /// <summary>方法不允许（路径存在但 HTTP 方法不对）同样要有统一响应体</summary>
+    [Theory]
+    [InlineData("/api/posts")]
+    [InlineData("/api/site/config")]
+    public async Task 方法不允许_返回统一响应体(string path)
+    {
+        // 这两个端点只接受 GET，用 DELETE 打过去会命中 405
+        var res = await _api.SendAsync(HttpMethod.Delete, path);
+        var raw = await res.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, res.StatusCode);
+        Assert.False(string.IsNullOrWhiteSpace(raw),
+            $"405 不应是空响应体（path={path}）");
+
+        // 405 没有专属业务码，沿用「参数不合法」这一档（与 MapStatusCode 的兜底一致）
+        AssertUnifiedErrorBody(raw, Codes.InvalidArgument);
+    }
 }

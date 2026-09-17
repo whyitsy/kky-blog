@@ -40,11 +40,6 @@ const router = createRouter({
       component: () => import('@/views/auth/LoginView.vue'),
       meta: { guestOnly: true },
     },
-    // 旧的后台登录页已并入 /login，保留路径并转发查询参数（returnUrl），避免旧链接失效
-    {
-      path: '/admin/login',
-      redirect: (to) => ({ name: 'login', query: to.query }),
-    },
 
     // 作者工作区：需要登录，Admin 也可进入（便于帮作者处理）
     {
@@ -73,9 +68,6 @@ const router = createRouter({
         { path: 'users', name: 'admin-users', component: () => import('@/views/AdminUserListView.vue') },
         { path: 'authors', name: 'admin-authors', component: () => import('@/views/AdminAuthorListView.vue') },
         { path: 'collections', name: 'admin-collections', component: () => import('@/views/AdminCollectionListView.vue') },
-        // 旧的「博主资料」页与「作者管理」职责重叠（都是维护 Author），
-        // 现统一到作者管理，保留本路径做重定向，避免旧链接 404
-        { path: 'profile', redirect: { name: 'admin-authors' } },
         { path: 'site', name: 'admin-site', component: () => import('@/views/AdminSiteConfigView.vue') },
       ],
     },
@@ -93,9 +85,25 @@ const router = createRouter({
  *
  * 重要：这只是**前端体验**控制，可被绕过（改 JS 即可）。
  * 真正的安全边界在后端 —— 所有受保护操作后端都会再校验一次角色与资源归属。
+ *
+ * 关于 `to.meta`：Vue Router 会把**匹配链上所有记录的 meta 合并**到 `to.meta`
+ * （父路由的 `requiresAuth` 对子路由同样有效），因此这里不需要自己遍历 `to.matched`。
+ * 实测：`/admin/posts/abc/edit` 解析出的 `meta.requiresAuth === true`。
  */
 router.beforeEach((to) => {
   const auth = useAuthStore()
+
+  // 本地已知过期：先记下「这次是因为过期」，再清干净。
+  //
+  // 顺序很重要：`clear()` 会把 expiresAt 抹掉，之后再问「是不是过期了」永远是 false。
+  // 必须先取快照。
+  //
+  // 为什么要在这里清：`isAuthenticated` 已叠加 `!isExpired`（守卫不会再放行），
+  // 这里顺手把 localStorage 里的残留 token 也抹掉，避免每次导航重复判断。
+  const wasExpired = auth.isExpired
+  if (wasExpired) {
+    auth.clear()
+  }
 
   // 仅未登录可访问（登录页）：已登录则送回各自首页
   if (to.meta.guestOnly && auth.isAuthenticated) {
@@ -108,7 +116,11 @@ router.beforeEach((to) => {
     // 只有一个登录页：无论是 /admin 还是 /me 都回到它，登录后按角色落地
     return {
       name: 'login',
-      query: { returnUrl: to.fullPath },
+      query: {
+        returnUrl: to.fullPath,
+        // 过期与「从未登录」给不同提示
+        ...(wasExpired ? { reason: 'expired' } : {}),
+      },
     }
   }
 
