@@ -7,7 +7,7 @@
 #
 # 为什么要「多阶段」：
 #   SDK 镜像约 1GB（含编译器、NuGet、MSBuild），运行只需要 ASP.NET Core 运行时（约 220MB）。
-#   多阶段让最终镜像**不含编译器和源码**，体积小、攻击面也小。
+#   多阶段让最终镜像**不含编译器和源码**，体积小。
 
 # ────────────────────────────────────────────────────────────────
 # 阶段 1：构建（builder）
@@ -15,7 +15,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# 【关键设计】先只复制 .csproj，再 restore，最后才复制源码。
+# 【分层构建】先只复制 .csproj，再 restore，最后才复制源码。
 #
 # Docker 镜像是一层层构建的，某一层的输入没变就直接复用缓存。
 # 源码几乎每次提交都变，但 .csproj 很少变。
@@ -36,9 +36,9 @@ COPY Blog.Backend/ ./
 # --no-restore：复用上面那一层的结果，避免重复还原
 # -o /app/publish：发布产物集中输出，方便下一阶段整目录复制
 RUN dotnet publish Blog.WebApi/Blog.WebApi.csproj \
-      --configuration Release \
-      --no-restore \
-      --output /app/publish
+  --configuration Release \
+  --no-restore \
+  --output /app/publish
 
 # ────────────────────────────────────────────────────────────────
 # 阶段 2：运行（runtime）
@@ -62,26 +62,22 @@ ARG VERSION=local
 ARG GIT_SHA=
 ARG BUILD_TIME=
 
-# ASPNETCORE_ENVIRONMENT=Production 有两个作用：
-#   1. 加载 appsettings.Production.json（而不是 Development）
-#   2. Program.cs 里 `if (IsDevelopment()) app.MapOpenApi()` 不会执行 —— 生产不暴露 OpenAPI
 # ASPNETCORE_HTTP_PORTS=8080：容器内监听端口。用非 443/80 端口是为了
 #   让**无 root 用户也能绑定**（Linux 下 <1024 端口需要特权）。
 ENV ASPNETCORE_ENVIRONMENT=Production \
-    ASPNETCORE_HTTP_PORTS=8080 \
-    VERSION=${VERSION} \
-    GIT_SHA=${GIT_SHA} \
-    BUILD_TIME=${BUILD_TIME}
+  ASPNETCORE_HTTP_PORTS=8080 \
+  VERSION=${VERSION} \
+  GIT_SHA=${GIT_SHA} \
+  BUILD_TIME=${BUILD_TIME}
 
 WORKDIR /app
 
 # curl 只用于 HEALTHCHECK。
 # 官方 aspnet 镜像**不含 curl**，而健康检查又必须真的发一个 HTTP 请求
-# （只看端口通不通无法发现「进程活着但数据库连不上」）。
 # 代价约 1MB，换来的是编排系统能正确判断容器是否可用。
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl \
- && rm -rf /var/lib/apt/lists/*
+  && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
 
 # 只复制发布产物：没有源码、没有 SDK、没有 obj/bin 中间文件
 COPY --from=build /app/publish ./
@@ -94,12 +90,10 @@ COPY --from=build /app/publish ./
 # .NET 8+ 官方镜像内置了非 root 用户 app（UID 1654）。
 # **不要用 root 跑应用**：一旦被拿下，攻击者在容器内就是 root。
 # 注意 chown 必须在 USER app **之前**执行。
-#
-# /app/version 只是一份**给人看**的副本（`docker exec ... cat /app/version`）；
-# 应用真正读的是上面那三个环境变量。
+
 RUN mkdir -p /app/media /app/logs \
- && printf 'VERSION=%s\nGIT_SHA=%s\nBUILD_TIME=%s\n' "$VERSION" "$GIT_SHA" "$BUILD_TIME" > /app/version \
- && chown -R app:app /app
+  && printf 'VERSION=%s\nGIT_SHA=%s\nBUILD_TIME=%s\n' "$VERSION" "$GIT_SHA" "$BUILD_TIME" > /app/version \
+  && chown -R app:app /app
 
 USER app
 
@@ -110,7 +104,6 @@ EXPOSE 8080
 #
 # 地址写 127.0.0.1 而不是 localhost：容器里 localhost 可能优先解析到 IPv6，
 # 而 IPv4/IPv6 的绑定情况取决于运行时配置。写死 IPv4 可避免一整类
-# "服务正常但探针失败"的假故障（deploy/nginx.Dockerfile 里踩过同样的坑）。
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD curl -fsS http://127.0.0.1:8080/health || exit 1
 
