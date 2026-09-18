@@ -25,13 +25,21 @@ namespace Blog.Infrastructure.Persistence.Migrations
             //     42704: text search configuration "chinese" does not exist
             //
             // 它之所以一直没暴露，是因为 PG 镜像的 entrypoint 脚本
-            // （deploy/postgres-init/01-zhparser.sql）会在数据目录为空时**先**把
-            // 扩展与配置建好 —— 靠的是部署巧合，而不是这条迁移自己能站得住。
+            // （当时是 deploy/postgres-init/01-zhparser.sql，已于 2026-09-19 删除）
+            // 会在数据目录为空时**先**把扩展与配置建好 —— 靠的是部署巧合，
+            // 而不是这条迁移自己能站得住。
             // 换标准 postgres 镜像 / 还原 schema-only dump / 手工建库后跑迁移，都会失败，
             // 且失败发生在应用启动时的 Database.Migrate()，表现为「应用起不来」。
             //
             // 两段 SQL 都是幂等的（IF NOT EXISTS / 条件判断），重复执行安全。
             // 已应用过本迁移的库会被 EF 按 ID 直接跳过，因此调整顺序对它们没有任何影响。
+            //
+            // ⚠️ 2026-09-19 起配置的**唯一**权威来源就是迁移链（不再挂载 init 脚本），
+            //    所以这条迁移是全新库能否建起来的**硬依赖**，不再有"部署巧合"兜底。
+            //    另外上面这段「配置不存在才创建」的守卫有个已知副作用：
+            //    社区 PG 镜像自带的脚本会抢先建出只含 n,v,a,i,e,l 的配置，
+            //    导致这里的 j,q 永远补不上 —— 由后续迁移
+            //    20260918174440_EnsureChineseConfigTokenMappings 负责补齐。
             // ══════════════════════════════════════════════════════════════════════
             migrationBuilder.Sql("CREATE EXTENSION IF NOT EXISTS zhparser;");
 

@@ -154,11 +154,15 @@ bash tools/deploy/pack-images.sh --dry-run     # 只预览会打哪些，不构�
 | 仅 `webapi` | **103 MB** | 只改了后端 |
 | `webapi` + `nginx`（**默认**） | **128 MB** | 两边都改了 |
 | 仅 `redis` | **15 MB** | `docker-compose.yml` 里改了 Redis 版本 |
-| 仅 `pgsql` | **439 MB** | `deploy/postgres-zhparser.Dockerfile` 改了（罕见） |
-| 四个全部 | **≈590 MB** | **只有首次部署** |
+| 仅 `pgsql` | **约 157 MB** | `docker-compose.yml` 里改了 PG 版本（罕见） |
+| 四个全部 | **≈350 MB** | **只有首次部署**（PG 已从 439 MB 降到约 157 MB） |
 
-> ❌ **不要每次都传 PG 镜像。** 它单独就占 **439 MB**（含从源码编译的 zhparser + SCWS），
-> 而它一个季度也未必变一次。旧版脚本每次都会把它打进包里 —— 那 439 MB 是纯浪费。
+> ❌ **不要每次都传 PG 镜像。** 它一个季度也未必变一次。
+> 旧版脚本每次都会把它打进包里 —— 那几百 MB 是纯浪费。
+>
+> 📌 **2026-09-19 起 PG 也是第三方镜像**（`mixdeve/postgres-zhparser:18`，官方 postgres + zhparser），
+> 不再是本地自编译的产物：服务器能连 Docker Hub 时直接 `docker compose pull pgsql` 即可，
+> 连不上才需要 `--only pgsql` 打包带过去。
 
 **关于 Redis**：它没有 `build:` 段，用的是**官方镜像**，脚本对它只 `pull` 不 `build`
 （对比 PG：必须自编译 zhparser，所以非自建不可）。但它**仍然会被 `--all` 打进包里** ——
@@ -175,8 +179,7 @@ bash tools/deploy/pack-images.sh --dry-run     # 只预览会打哪些，不构�
 | `Blog.FrontEnd/**` | nginx | `--only nginx` |
 | `deploy/nginx.conf`、`deploy/nginx.Dockerfile` | nginx | `--only nginx` |
 | `deploy/webapi.Dockerfile` | webapi | `--only webapi` |
-| `deploy/postgres-zhparser.Dockerfile`、`deploy/postgres-init/**` | pgsql | `--only pgsql`（罕见） |
-| `docker-compose.yml` 里 `redis:` 的 `image:` 行 | 无（改的是版本号） | `--only redis`（把新版本带上去） |
+| `docker-compose.yml` 里 `pgsql:` / `redis:` 的 `image:` 行 | 无（改的是版本号） | `--only pgsql` / `--only redis`（把新版本带上去） |
 | 其它 `docker-compose.yml`、`tools/**`、`docs/**`、根 `README.md` | **不用重建** | —— 直接 scp |
 
 不想记的话让它自己判断：
@@ -275,8 +278,9 @@ bash tools/deploy/server-update.sh <sha> --check   # 只拉不切，先确认能
 > 走 A 时服务器拉的就是 CI 从那个提交构建的镜像，**"线上跑的是哪个提交"有据可查**。
 > 这正是 `docs/06` 的 **G4「没有发布流程与版本号」**。
 
-> ⚠️ **PG 与 Redis 不走 GHCR**，仍然靠 `pack-images.sh --all` 首次传一次。
-> 理由：PG 镜像 439 MB 且一年变不了几次，让 CI 每次重建重推不划算。
+> ⚠️ **PG 与 Redis 不走 GHCR** —— 它们是第三方镜像，不构建、也就没有"推上去"这回事。
+> 首次部署时让服务器 `docker compose pull pgsql redis`，或用 `pack-images.sh --all` 打包带过去。
+> 理由：让 CI 每次重建重推第三方镜像没有意义（`webapi` / `nginx` 才是本项目自己的产物）。
 
 #### ⚠️ 光跑 `server-update.sh` 有时不够
 
@@ -287,8 +291,7 @@ bash tools/deploy/server-update.sh <sha> --check   # 只拉不切，先确认能
 |---|---|
 | `Blog.Backend/**`、`Blog.FrontEnd/**`、`deploy/nginx.conf`、`deploy/{webapi,nginx}.Dockerfile` | ✅ 够了 |
 | `docker-compose.yml`、`docker-compose.prod.yml` | ⚠️ 还要 **scp** |
-| `deploy/postgres-zhparser.Dockerfile`、`deploy/postgres-init/**` | ⚠️ 还要 `pack-images.sh --only pgsql` → scp → `docker load` |
-| `docker-compose.yml` 里 redis 那行 `image:` | ⚠️ 还要 `pack-images.sh --only redis` → scp → `docker load` |
+| `docker-compose.yml` 里 pgsql / redis 那两行 `image:` | ⚠️ 还要 `pack-images.sh --only pgsql`（或 `--only redis`）→ scp → `docker load`；服务器能连 Docker Hub 时也可直接 `docker compose pull` |
 | `tools/backup/**`、`tools/deploy/*.sh` | ⚠️ 还要 scp |
 
 **不用背这张表** —— CI 跑完会把结论**直接写进 `publish` 作业的摘要**里
@@ -377,11 +380,11 @@ sudo apt update && sudo apt install -y caddy
 
 # ── ② 写配置（把域名换成你自己的）──
 sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
-www.example.com {
+www.kkynet.site {
 	reverse_proxy 127.0.0.1:8080
 }
 
-example.com {
+kkynet.site {
 	redir https://www.example.com{uri} permanent
 }
 EOF

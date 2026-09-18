@@ -79,8 +79,8 @@ bash tools/backup/restore.sh backups/xxx.sql.gz my_check_db
 > ```
 >
 > 也就是说：**数据在，检索能力不在。** 还原的目标实例必须**预先装好 zhparser 的扩展文件**，
-> 而它不在官方镜像里、必须自行编译 —— 这正是生产环境**必须**使用
-> `deploy/postgres-zhparser.Dockerfile` 构建的镜像的原因。
+> 而它不在官方镜像里 —— 这正是生产环境**必须**使用带 zhparser 的镜像
+> （`mixdeve/postgres-zhparser:18`，见 `deploy/README.md` §1）的原因。
 >
 > 📌 这条结论来自一次真实的还原演练：演练之前本文档写的是"扩展不在 dump 里"，
 > **是错的**。这就是为什么"没演练过的备份等于没有备份"——
