@@ -2,8 +2,15 @@
 # 服务器：把栈更新到某个提交对应的镜像（从 GHCR 拉，**不传 tar.gz**）
 #
 # 和 pack-images.sh 的分工：
-#   首次部署 / PG 变了  → 本地 pack-images.sh --all + scp（PG 439 MB，值得传一次）
-#   日常更新应用        → 本脚本，只下 Docker 层（通常几 MB）
+#   首次部署 / 第三方镜像变了 → 本地 pack-images.sh --all + scp，
+#                               或服务器能连 Docker Hub 时直接 docker compose pull
+#   日常更新应用               → 本脚本，只下 Docker 层（通常几 MB）
+#
+# ⚠️ 本脚本**只更新 webapi / nginx**（GHCR 里只有这两个）。
+#    2026-09-19 起 PG 也是第三方镜像（mixdeve/postgres-zhparser，约 157 MB），
+#    所以 compose 里 pgsql 的 image 行变了时，本脚本不会碰它 —— 要另外：
+#      docker compose pull pgsql && docker compose up -d pgsql
+#    （数据在命名卷里，换 PG 镜像不会丢数据；详见 deploy/README.md §4）
 #
 # 前提（一次性）：
 #   ① 服务器上要有 docker-compose.prod.yml（从仓库 scp 过来）

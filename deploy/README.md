@@ -1,122 +1,174 @@
 # 部署相关产物
 
-> 记录日期：2026-09-10 ｜ 相关说明见 [../docs/01-快速开始.md](../docs/01-快速开始.md) §5.4
+> 记录日期：2026-09-10（**2026-09-19 重写 §1~§4**：PG 改用社区镜像、删掉自建 Dockerfile）｜ 相关说明见 [../docs/01-快速开始.md](../docs/01-快速开始.md) §5.4
 
-本目录放**部署期**需要的产物（镜像定义、初始化脚本）。
+本目录放**部署期**需要的产物（镜像定义、站点配置）。
 它不属于任何 .NET 工程，因此不参与 `dotnet build`。
 
+**本地只需要构建两个镜像**：`webapi.Dockerfile`（后端）、`nginx.Dockerfile`（前端 + 网关）。
+PostgreSQL 与 Redis 都是**第三方镜像，只拉不建**。
+
 ---
 
-## 1. `postgres-zhparser.Dockerfile` —— 带中文分词的 PostgreSQL 镜像
+## 1. PostgreSQL 镜像：改用社区镜像（不再自建）
 
-### 为什么需要它
+### 为什么需要带 zhparser 的镜像
 
-项目按 T9 决策使用 PostgreSQL **全文检索（FTS）** 做站内中文检索。
 PostgreSQL 内置分词器只按空格/标点切分，对中文会把**整句当成一个词元**，
 因此必须安装中文分词器 **`zhparser`**（依赖 **SCWS** 词法库）。
+它**不在官方 `postgres` 镜像里**。
 
-`zhparser` **不在官方 `postgres` 镜像中，必须自行编译**。
-如果只在容器里手工编译，容器一重建就全丢，全文检索会直接报错：
+### 结论：用 `mixdeve/postgres-zhparser`
 
+```yaml
+# docker-compose.yml
+pgsql:
+  image: ${POSTGRES_IMAGE:-mixdeve/postgres-zhparser:18}
 ```
-ERROR:  text search configuration "chinese" does not exist
+
+| 项 | 值 |
+|---|---|
+| 镜像 | `mixdeve/postgres-zhparser:18` |
+| 上游 | [mnixry/postgres-zhparser](https://github.com/mnixry/postgres-zhparser)（Dockerfile 全程只有约 25 行） |
+| 基础镜像 | `postgres:18.6-bookworm`（`PG_VERSION=18.6-1.pgdg12+2`） |
+| 内容 | `/usr/local/scws` + zhparser 装进 `pg_config` 的 `pkglibdir` / `sharedir` |
+| 支持版本 | PG **12~18**；架构 `linux/amd64`、`linux/arm64` |
+| 体积 | 约 157 MB（压缩后） |
+
+### ⚠️ 为什么曾经自建、现在不自建了
+
+本项目原先用 `deploy/postgres-zhparser.Dockerfile` 从源码编译 SCWS + zhparser
+（该文件与 `deploy/postgres-init/` 已于 2026-09-19 删除，可 `git log` 查看）。
+当时踩的坑（`libscws-dev` 不在 Debian 源、SCWS 仓库脚本名是 `acprep` 而非 `autogen.sh`、
+`Makefile.am` 里一行 Tab 缩进的 `#` 注释会让 `acprep` 失败等）都是**自建才有的成本**。
+
+**社区镜像把这些问题都解决了**，于是自建变成纯粹的重复劳动，
+还要把 439 MB 的产物单独打包上传服务器。改用它之后：
+PG 与 Redis 走同一条路径 —— 写 compose 的 `image:` 行，`docker compose pull` 即可。
+
+### ⚠️ 上游只发布大版本 tag（已知取舍）
+
+上游没有 `18.6` 这类 patch 级 tag，**只有 `12`~`18`**。所以做不到像 `redis:7.4.11-alpine`
+那样钉到 patch 位：上游重新构建 `18` 时，本地 / CI / 服务器可能拉到不同 patch 的镜像。
+这是 `../docs/06-技术债与待办.md` G4「没有版本号约定」在依赖侧的同一个问题。
+
+要完全锁死就改用 digest：
+
+```yaml
+image: mixdeve/postgres-zhparser@sha256:<digest>
 ```
 
-所以把编译步骤固化进镜像 —— 这是唯一可复现、可交接、CI 也能用的做法。
+### 数据卷兼容性（换镜像不会丢数据）
 
-### 构建
+社区镜像的 `PGDATA` 与官方镜像**完全一致**，都是 `/var/lib/postgresql/18/docker`，
+entrypoint 也是官方那套 `docker-entrypoint.sh`。所以既有的
+`pgdata:/var/lib/postgresql` 挂载**原样可用**，换镜像时数据目录不会被重新初始化。
+
+---
+
+## 2. ⚠️ 镜像自带的 `chinese` 配置缺 `j,q` —— 由 EF 迁移补齐
+
+### 问题
+
+社区镜像会在数据目录为空时执行它自带的
+`/docker-entrypoint-initdb.d/zhparser.sql`：
+
+```sql
+CREATE EXTENSION IF NOT EXISTS zhparser;
+CREATE TEXT SEARCH CONFIGURATION chinese (PARSER = zhparser);
+ALTER TEXT SEARCH CONFIGURATION chinese ADD MAPPING FOR n,v,a,i,e,l WITH simple;
+```
+
+注意最后一行只有 **`n,v,a,i,e,l`**，比本项目需要的少了 **`j`（简称）和 `q`（量词）**。
+
+而 `20260910205225_AddAuthCollectionsAndFts` 里创建配置的那段 SQL 是
+**「配置不存在才创建」**（`IF NOT EXISTS (… cfgname = 'chinese')`）——
+镜像脚本一旦先跑，那段就整体跳过，于是 `j,q` 永远补不上，**而且不报任何错**。
+
+### 后果（实测，不是推测）
+
+没有映射的 token 类型会被 `to_tsvector` **直接丢弃**、不进索引：
+
+```sql
+-- 缺 j,q 时：量词「篇」「个」消失
+SELECT to_tsvector('chinese','一篇文章 五个参数');
+--  '参数':2 '文章':1
+-- 补上 j,q 后：
+--  '个':3 '参数':4 '文章':2 '篇':1
+```
+
+### 解法：迁移 `20260918174440_EnsureChineseConfigTokenMappings`
+
+| 做什么 | 为什么 |
+|---|---|
+| `ADD MAPPING FOR j,q`（DO 块自己判存在性） | PostgreSQL **没有** `ADD MAPPING IF NOT EXISTS` 语法（实测 PG18 报 `42601`） |
+| 补完映射后重写一次 `Posts` | `SearchVector` 是**生成列**，只在行写入时计算；改 `pg_ts_config_map` 不会让 PostgreSQL 重算任何生成列 |
+| 重写用 `SET "Title"="Title", "Summary"="Summary", "Content"="Content"` | 必须 SET **生成表达式真正引用的列**。⚠️ 写成 `SET "Id"="Id"`（主键）**不会**触发重算 —— 实测语句报 `UPDATE 1`，但 `SearchVector` 原封不动。这个错误**完全静默** |
+| 只在「本次真的补了映射」时才重写 | 全新库（迁移先于任何文章）不写任何行；已带 `j,q` 的库不进重写分支 |
+
+> **为什么不能改老迁移**：EF 按迁移 ID 记录已应用的迁移，**对已上线的库改老迁移内容
+> 不会有任何效果**（它已被跳过）。所以必须新增一条。
+
+### 因此不再挂载 `deploy/postgres-init/`
+
+`deploy/postgres-init/01-zhparser.sql` 已删除。理由：
+**配置的权威来源必须只有一个**。若同时保留"挂载脚本"和"迁移"两条路径，
+将来改映射时很容易只改一处，而另一处静默地继续保持旧行为 ——
+这正是本节记录的故障模式本身。现在统一由 EF 迁移负责。
+
+**顺带的好处**：`pg_ts_config` 是**按库**存在的（不是按实例）。在已有实例上
+`CREATE DATABASE` 建出的新库里**没有** `chinese` 配置 —— 挂载脚本帮不上忙，
+而迁移每次都会在该库上执行，所以"迁移是唯一权威"才是自洽的做法。
+
+### CI 里有一道回归防护
+
+`.github/workflows/ci.yml` 的「校验 chinese 检索配置的映射完整」步骤会在跑完测试后
+断言映射恰好是 `a,e,i,j,l,n,q,v`，并确认量词确实进了索引。
+**放在测试之后**是必须的：迁移由应用启动时执行，提前断言会假红。
+
+> 映射缺项是**完全静默**的故障：SQL 不报错，`/health` 也发现不了
+> （健康检查只查「zhparser 扩展在不在」和「`chinese` 配置存不存在」）。
+> 所以它值得一条专门的流水线断言。
+
+---
+
+## 3. 验证：中文分词确实可用
+
+### 3.1 快速验证（开发容器）
 
 ```bash
-# 在仓库根目录执行
-docker build -f deploy/postgres-zhparser.Dockerfile -t blog-postgres-zhparser:18 .
+docker exec -it pgsql psql -U kky -d blog_stage2 -c \
+  "SELECT to_tsvector('chinese', '使用 EF Core 做数据库优化与全文检索');"
 ```
 
-构建产物：`blog-postgres-zhparser:18`（基于 `postgres:18.6`）。
-
-### 镜像里有什么
-
-| 内容 | 位置 |
-|---|---|
-| `zhparser.so` | `$(pg_config --pkglibdir)/zhparser.so` |
-| `zhparser.control` + SQL 脚本 | `$(pg_config --sharedir)/extension/` |
-| `libscws` | `/usr/local/lib/` |
-| 初始化脚本 | `/docker-entrypoint-initdb.d/01-zhparser.sql` |
-
-### 构建期踩到的坑（已在 Dockerfile 中处理）
-
-| # | 坑 | 处理 |
-|---|---|---|
-| 1 | `libscws-dev` **不在 Debian 13 源**里 | SCWS 也必须从源码编译 |
-| 2 | SCWS 仓库**没有 `autogen.sh`**，实际脚本名是 `acprep` | 用 `./acprep` |
-| 3 | `acprep` 因 `Makefile.am` 里一行 **Tab 缩进的 `#` 注释**报 `'#' comment at start of rule is unportable` | `sed -i '/^[[:space:]]*#unison/d' Makefile.am` 先删掉 |
-| 4 | `automake --warnings=no-portability` **无法抑制**上述错误 | 只能改源码 |
-| 5 | `acprep` 需要 `autoconf automake libtool pkg-config` | 已装 |
-| 6 | GitHub clone 偶发 TLS 中断 | 本文档记录；如需更稳可换 tarball 下载 |
-
----
-
-## 2. `postgres-init/01-zhparser.sql` —— 全新环境的初始化
-
-启用 `zhparser` 扩展，并创建中文检索配置 `chinese`（含权重所需的 token 类型映射）。
-
-**运行时机**：postgres 官方镜像的 entrypoint 会在**数据目录为空**时执行它。
-即「全新环境一次到位」，不需要开发者手工跑 SQL。
-
-**幂等**：全部用 `CREATE EXTENSION IF NOT EXISTS` 与 `DO` 块判断，重复执行安全。
-
-> ⚠️ **对已存在的数据库，这个脚本不会重跑。**
-> 因此**扩展与检索配置的权威来源是 EF 迁移**（见 [../docs/02-架构与数据模型.md](../docs/02-架构与数据模型.md) §9.4）。
-> 本脚本只是让全新环境开箱可用，**不是必需的前置条件**。
->
-> ✅ **2026-09-13 起两处才真正一致**：此前迁移虽然包含同样的语句，但把
-> `AddColumn<SearchVector>`（生成列，依赖 `chinese` 配置）排在了创建该配置**之前**，
-> 于是**迁移链自己无法从零建库** —— 全新库能否跑起来完全依赖本脚本先执行。
-> 顺序已修正，迁移现在能独立完成建库；集成测试也不再预建配置，
-> 而是在完全干净的库上跑迁移（缺口 G12，见
-> [../docs/06-技术债与待办.md](../docs/06-技术债与待办.md) §2 的 G12）。
-
-脚本末尾有一段自检，会在容器日志中打印分词结果，便于确认生效：
+预期是**词级切分**：
 
 ```
-NOTICE:  zhparser 自检分词结果: 'core':3 'ef':2 '优化':6 '使用':1 '做':4 '全文检索':7 '数据库':5
+'core':3 'ef':2 '优化':6 '使用':1 '做':4 '全文检索':7 '数据库':5
 ```
 
-> 日志里可能出现 `custom dict ... not loaded (missing or unreadable)` ——
-> 这是 zhparser 在找**自定义词典**（用于加专业词汇），未提供时属正常，不影响分词。
-
----
-
-## 3. 验证记录
-
-已在一个**独立端口**的全新容器上验证镜像可用（未影响开发库）：
+### 3.2 验证映射完整（缺项是静默的，所以要显式查）
 
 ```bash
-docker run -d --name pgsql-zh-test \
-  -e POSTGRES_USER=kky -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=zh_test \
-  -p 5433:5432 blog-postgres-zhparser:18
+docker exec pgsql psql -U kky -d blog_stage2 -tAc "
+SELECT string_agg(DISTINCT t.alias, ',' ORDER BY t.alias)
+FROM pg_ts_config c
+JOIN pg_ts_config_map m ON m.mapcfg = c.oid
+JOIN ts_token_type(c.cfgparser) t ON t.tokid = m.maptokentype
+WHERE c.cfgname = 'chinese';"
+# 期望：a,e,i,j,l,n,q,v
 ```
 
-验证结果：
+### 3.3 日志里的正常噪音
 
-| 检查项 | 结果 |
-|---|---|
-| 初始化脚本自动执行 | ✅ 日志显示 `running /docker-entrypoint-initdb.d/01-zhparser.sql` |
-| 扩展已安装 | ✅ `SELECT extname FROM pg_extension` 返回 `zhparser` |
-| 检索配置已创建 | ✅ `SELECT cfgname FROM pg_ts_config` 返回 `chinese` |
-| 中文分词正确 | ✅ `to_tsvector` 输出词级结果（非逐字、非整句） |
-| 检索匹配正确 | ✅ `to_tsvector('chinese','数据库优化实践') @@ plainto_tsquery('chinese','数据库')` → `t` |
-
-验证后已删除测试容器：`docker rm -f pgsql-zh-test`。
+容器日志可能出现 `custom dict ... not loaded (missing or unreadable)` ——
+这是 zhparser 在找**自定义词典**（用于加专业词汇），未提供时属正常，不影响分词。
 
 ---
 
-## 4. 切换开发环境的 PostgreSQL 容器（✅ 已执行）
+## 4. 换 PG 镜像的操作步骤（数据卷沿用，不丢数据）
 
-> **状态：已完成。** 开发容器 `pgsql` 现运行 `blog-postgres-zhparser:18`，
-> 数据卷沿用原卷，业务数据与扩展配置均已验证（见 §5）。
-> 下方步骤保留作为**操作手册与灾难恢复参考**。
-
-数据在**命名卷**里（而不是容器内），因此**替换容器不会丢数据**：
+> 数据在**命名卷**里（而不是容器内），所以**替换容器不会丢数据**。
 
 ```bash
 # 1) 先确认数据卷名（下面这条会打印卷名，形如 3aaacea5...）
@@ -125,14 +177,14 @@ docker inspect pgsql --format '{{range .Mounts}}{{.Name}}{{end}}'
 # 2) 停掉旧容器但保留它（万一要回退）
 docker stop pgsql && docker rename pgsql pgsql-old
 
-# 3) 用自定义镜像启动新容器，挂同一个数据卷
+# 3) 用社区镜像启动新容器，挂同一个数据卷
 docker run -d --name pgsql \
   -e POSTGRES_USER=kky -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=blog_stage2 \
   -p 5432:5432 \
   -v <上一步打印的卷名>:/var/lib/postgresql \
-  blog-postgres-zhparser:18
+  mixdeve/postgres-zhparser:18
 
-# 4) 验证既有库仍在，并确认扩展与检索配置
+# 4) 验证既有库仍在，并确认扩展、检索配置与映射
 docker exec pgsql psql -U kky -d blog_stage2 -tAc \
   "SELECT extname FROM pg_extension WHERE extname='zhparser';"
 docker exec pgsql psql -U kky -d blog_stage2 -tAc \
@@ -147,87 +199,44 @@ docker rm pgsql-old
 > `/var/lib/postgresql/18/docker`，所以卷挂在这一层才能覆盖到数据目录。
 > 写错会导致容器以为数据目录为空而重新初始化，表现为「数据看起来丢了」（实际还在卷里）。
 
----
+> **用 compose 的场合**不必手敲上面这些：改 `docker-compose.yml` 的 `image:` 行，
+> 然后 `docker compose up -d pgsql` 即可（卷由 compose 管理，自动沿用）。
+> `j,q` 映射缺失由应用启动时的迁移补齐，不需要人工跑 SQL。
 
-## 5. 切换执行记录与验证（2026-09-11）
+### 改用社区镜像的实测记录（2026-09-19）
 
-### 执行
-
-```bash
-# 1) 先做安全备份（不依赖卷是否完好）
-docker exec pgsql pg_dump -U kky -d blog_stage2 --no-owner --no-acl -f /tmp/b.sql
-docker cp pgsql:/tmp/b.sql D:/tmpbuild/pgbackup/
-
-# 2) 换容器（数据卷沿用）
-docker stop pgsql && docker rename pgsql pgsql-old
-docker run -d --name pgsql \
-  -e POSTGRES_USER=kky -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=blog_stage2 \
-  -p 5432:5432 \
-  -v 3aaacea5a25e5a7f7b0982fec9347baa1eeeede50c4e0541dbf704d818d77ce6:/var/lib/postgresql \
-  blog-postgres-zhparser:18
-```
-
-### 验证结果
+在**独立端口的一次性容器 + 全新空数据卷**上验证：
 
 | 检查项 | 结果 |
 |---|---|
-| 数据库全部保留 | ✅ `blog` / `blog_dev` / `blog_stage2` / `hangfire_dev` |
-| 业务数据未丢 | ✅ Posts 9 / Users 7 / Authors 4 / SiteConfigs 4 / SocialLinks 3 / Collections 2 |
-| 迁移记录完整 | ✅ 2 个迁移均在（`InitCreate`、`AddAuthCollectionsAndFts`） |
-| GIN 索引仍在 | ✅ `ix_posts_search` |
-| `chinese` 检索配置 | ✅ parser = `zhparser`，token 映射 `a,e,i,j,l,n,q,v` |
+| 镜像可拉取并启动 | ✅ `mixdeve/postgres-zhparser:18`，约 157 MB |
+| 基础版本 | ✅ `PG_VERSION=18.6-1.pgdg12+2`（与原自建镜像的 `postgres:18.6` 一致） |
+| `PGDATA` | ✅ `/var/lib/postgresql/18/docker`，与原挂载点兼容 |
+| 镜像自带脚本建出的映射 | ✅（也正是问题所在）`a,e,i,l,n,v` |
+| 迁移后映射 | ✅ `a,e,i,j,l,n,q,v` |
 | 中文分词为词级 | ✅ `'core':3 'ef':2 '优化':6 '使用':1 '做':4 '全文检索':7 '数据库':5` |
-| 检索匹配 | ✅ `@@ plainto_tsquery('chinese','数据库')` → `t` |
-| 应用连通 | ✅ 后端启动即迁移成功，`/api/posts/search?keyword=数据库` 返回 200 |
-
-### 关键验证：容器重建后扩展是否还在
-
-在**一次性容器 + 全新空数据卷**上模拟"容器重建"：
-
-```bash
-docker run -d --name pgsql-zh-verify -p 5433:5432 \
-  -e POSTGRES_USER=kky -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=zh_verify \
-  blog-postgres-zhparser:18
-```
-
-| 检查项 | 结果 |
-|---|---|
-| entrypoint 执行初始化脚本 | ✅ 日志出现 `running /docker-entrypoint-initdb.d/01-zhparser.sql` |
-| 扩展自动创建 | ✅ `ext=zhparser` |
-| 检索配置自动创建 | ✅ `cfg=chinese` |
-| 分词可用 | ✅ `'中文':1 '全文检索':2 '测试':3` |
-
-验证后已删除该容器。**结论：容器重建不再影响全文检索。**
-
-### 回退点
-
-旧容器保留为 `pgsql-old`（`postgres:18.6`，已停止状态）。
-确认新容器稳定后可删除：
-
-```bash
-docker rm pgsql-old
-```
-
-备份文件位于 `D:/tmpbuild/pgbackup/blog_stage2_<时间戳>.sql`。
+| 全新库跑完整迁移链 | ✅ 5 条迁移全部成功，且资料检索可命中「篇」 |
+| 半配置 + 存量文章的库 | ✅ 迁移补映射并重算 `SearchVector`，存量行可被搜到 |
+| 重复执行迁移 | ✅ 幂等，且**不**重复重写 `Posts` |
 
 ---
 
-## 6. 应用镜像与本地整栈编排（`docker-compose.yml`）
+## 5. 应用镜像与本地整栈编排（`docker-compose.yml`）
 
 > 记录日期：2026-09-12 ｜ 相关说明见 [../docs/05-运维与部署手册.md](../docs/05-运维与部署手册.md) §8.4
 
-### 6.1 本目录新增的产物
+### 5.1 本目录新增的产物
 
 | 文件 | 职责 |
 |---|---|
 | `webapi.Dockerfile` | 后端镜像（多阶段：SDK 构建 → ASP.NET 运行时） |
 | `nginx.Dockerfile` | 前端构建（Node）→ Nginx 网关镜像 |
 | `nginx.conf` | Nginx 站点配置：静态文件 + `/api` 反代 + SPA fallback |
-| `../docker-compose.yml` | 四服务编排：`nginx` / `webapi` / `pgsql` / `redis` |
+| `../docker-compose.yml` | 四服务编排：`nginx` / `webapi` / `pgsql` / `redis` —— 其中 **pgsql 与 redis 是第三方镜像（只拉不建）**，见 §1 |
 | `../.env.example` | 环境变量模板（**含密钥的真实 `.env` 不入库**） |
-| `../.dockerignore` | 构建上下文排除规则（**必需**，见 §6.4） |
+| `../.dockerignore` | 构建上下文排除规则（**必需**，见 §5.4） |
 
-### 6.2 为什么要在本地跑「生产形态」
+### 5.2 为什么要在本地跑「生产形态」
 
 `docs/05` §8.2 预告过的**只在部署后才暴露**的坑。用这套 compose，
 它们**全部可以在本地复现**，从而在买服务器之前就踩完：
@@ -235,12 +244,12 @@ docker rm pgsql-old
 | 坑 | 本地复现方式 |
 |---|---|
 | SPA history fallback | `curl -i http://localhost:8080/post/<id>` —— 配错立刻 404 |
-| `X-Forwarded-For` | 对比带/不带伪造头的限流行为（§6.5 有实测脚本） |
+| `X-Forwarded-For` | 对比带/不带伪造头的限流行为（§5.5 有实测脚本） |
 | 工作目录 | 容器内 `WORKDIR /app` 决定 `logs/` 与 `media/` 落在哪 |
 
 **收益**：远程部署时你只需要面对「服务器环境」这一个变量，而不是两个。
 
-### 6.3 用法
+### 5.3 用法
 
 ```bash
 # 在仓库根目录
@@ -258,7 +267,7 @@ docker compose down -v                  # ⚠️ 连数据卷一起删
 > ② 更接近生产——数据库不该直接对外。
 > 需要直连时用 `docker compose exec pgsql psql -U kky -d blog_stage2`。
 
-### 6.4 ⚠️ 构建踩到的坑（两个都是真实发生过的）
+### 5.4 ⚠️ 构建踩到的坑（两个都是真实发生过的）
 
 **坑 A：缺少 `.dockerignore` 会让 Windows 的 `obj/` 污染 Linux 构建**
 
@@ -316,7 +325,7 @@ wget: can't connect to remote host: Connection refused
 > 只验证前者，你会带着一个永远 unhealthy 的容器上线 ——
 > 而编排系统（Swarm / K8s / 甚至 `depends_on: service_healthy`）会因此拒绝启动下游服务。
 
-### 6.5 验证记录（2026-09-12 实测）
+### 5.5 验证记录（2026-09-12 实测）
 
 | 检查项 | 结果 |
 |---|---|
@@ -326,12 +335,12 @@ wget: can't connect to remote host: Connection refused
 | 前端首页 | ✅ `200` / `text/html` / 904 字节 |
 | 静态资源缓存头 | ✅ `/assets/*` 返回 `Cache-Control: max-age=31536000` + `public, immutable` |
 | **坑 1** SPA fallback | ✅ `/post/<uuid>`、`/admin/posts/new`、`/collections/xxx` 均返回 index.html；`/assets/不存在.js` 正确 404 |
-| **坑 2** `X-Forwarded-For` | ✅ 修复后：伪造 XFF 连发 28 次 → 26 次被限流（修复前 **0 次**，见 §6.6） |
+| **坑 2** `X-Forwarded-For` | ✅ 修复后：伪造 XFF 连发 28 次 → 26 次被限流（修复前 **0 次**，见 §5.6） |
 | **坑 3** 工作目录与持久化 | ✅ 上传文件写入 `media` 卷（`app` 用户所有）；日志写入 `logs` 卷；`media-seed` 只读回退可用（`GET /api/files/avatar-default.webp` → `200 image/webp`） |
 | 新增坑：上传体积 | ✅ 2 MiB 文件上传成功且在**后端日志中可见**（未设 `client_max_body_size` 时会被 nginx 413 拦掉，后端毫无记录） |
 | 路径穿越防护 | ✅ `/api/files/....//....//etc/passwd` 到达应用后返回 `404 文件不存在` |
 
-### 6.6 ⚠️ 发现并修复的安全缺陷：限流可被绕过
+### 5.6 ⚠️ 发现并修复的安全缺陷：限流可被绕过
 
 **这是本轮最有价值的发现，且只有把栈真正跑起来才能发现。**
 

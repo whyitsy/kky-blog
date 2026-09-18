@@ -17,12 +17,25 @@ name: blog
 services:
   # ────────────────────────────────────────────────────────── PostgreSQL
   pgsql:
-    # 同时给 build 与 image：全新克隆的仓库能直接 build 出来，
-    # 已有该镜像时（开发机早就构建过）则直接复用，tag 与 deploy/README.md 保持一致。
-    build:
-      context: .
-      dockerfile: deploy/postgres-zhparser.Dockerfile
-    image: blog-postgres-zhparser:18
+    # 中文分词用社区镜像（含 zhparser + SCWS），**与 Redis 同类：只拉不建**。
+    #
+    # 为什么不再自建：本项目原先自编译 zhparser（见 git 历史里的
+    # deploy/postgres-zhparser.Dockerfile），但社区已有活跃维护的多版本镜像，
+    # 自建纯属重复劳动，还要把 ~439 MB 的镜像单独打包上传服务器。
+    # 该镜像解决的问题正是"官方 postgres 镜像没有中文分词器"。
+    #
+    # ⚠️ 上游只发布 `12`~`18` 这类**大版本** tag，没有 `18.6` 这种 patch 级 tag，
+    #    所以它做不到像下面 redis 那样钉到 patch 位 —— 这正是 `docs/06` G4
+    #    「没有版本号约定」在依赖侧的同一个问题，这里的取舍是**接受浮动**：
+    #    上游重建 `18` 时，本地 / CI / 服务器可能拉到不同 patch 的镜像。
+    #    当前 `18` = PostgreSQL 18.6（与原先自建的 postgres:18.6 一致）。
+    #    要完全锁死可改用 digest：mixdeve/postgres-zhparser@sha256:<digest>
+    #
+    # ⚠️ 镜像自带的 entrypoint 脚本会建 `chinese` 检索配置，但它只映射
+    #    n,v,a,i,e,l，**少了 j,q**。缺的映射由 EF 迁移
+    #    20260918174440_EnsureChineseConfigTokenMappings 补齐（含存量行重算），
+    #    所以这里**不再挂载** deploy/postgres-init/。详见 deploy/README.md。
+    image: ${POSTGRES_IMAGE:-mixdeve/postgres-zhparser:18}
 
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-kky}
@@ -34,6 +47,7 @@ services:
       #    PG18 的 PGDATA 实际是 /var/lib/postgresql/18/docker，
       #    写错会让容器以为数据目录为空而重新初始化 —— 表现为"数据看起来丢了"。
       #    （要改挂载点前，先 `docker compose exec pgsql printenv PGDATA` 核对实际路径）
+      #    社区镜像的 PGDATA 与官方镜像一致，故沿用原卷不会丢数据。
       - pgdata:/var/lib/postgresql
 
     # ⚠️ 刻意**不发布端口到宿主机**，两个原因：

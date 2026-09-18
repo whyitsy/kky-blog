@@ -80,21 +80,25 @@ fi
 step "2/8 装载镜像"
 gunzip -c "$TAR" | docker load
 
-# ⚠️ 包里可能**不含 PG 与 Redis 镜像** —— pack-images.sh 默认只打应用两个镜像
-#    （PG 有 439 MB 且一个季度未必变一次；Redis 是官方镜像）。
+# ⚠️ 包里可能**不含 PG 与 Redis 镜像** —— pack-images.sh 默认只打应用两个镜像。
 #    但首次部署必须四个都有。在这里提前拦住并说清怎么做，
 #    好过让你去读 `docker compose up` 吐出来的 "image not found"。
+#
+#    📌 2026-09-19 起 PG 也是**第三方镜像**（mixdeve/postgres-zhparser，约 157 MB），
+#       不再是本地自编译的 blog-postgres-zhparser:18 —— 所以它现在也能在服务器上
+#       直接 `docker compose pull pgsql` 拿到，不再是"必须从本地传"的 439 MB 大件。
 MISSING=""
-for img in blog-postgres-zhparser:18 blog-webapi:local blog-nginx:local redis:7.4.11-alpine; do
+for img in mixdeve/postgres-zhparser:18 blog-webapi:local blog-nginx:local redis:7.4.11-alpine; do
   docker image inspect "$img" >/dev/null 2>&1 || MISSING="${MISSING} ${img}"
 done
 if [ -n "$MISSING" ]; then
   bad "装载后仍缺少镜像：${MISSING}
       这个包多半是**不含 PG / Redis 的应用包**（pack-images.sh 的默认行为）。
-      首次部署请改用：bash tools/deploy/pack-images.sh --all
-      然后把新产出的 tar.gz 传上来，重跑本脚本。
-      （Redis 是官方镜像、不构建，但 --all 会把它一并打进包里 ——
-        目的是让服务器**完全不需要连 Docker Hub**。）"
+      两种补法，任选其一：
+        a) 服务器能连 Docker Hub：cd /opt/blog && docker compose pull pgsql redis
+        b) 服务器不能连外网：
+           bash tools/deploy/pack-images.sh --all
+           然后把新产出的 tar.gz 传上来，重跑本脚本。"
 fi
 ok "四个镜像齐备（webapi / nginx / postgres-zhparser / redis）"
 
@@ -106,7 +110,7 @@ else
   ( umask 077; cat > .env <<EOF
 # 由 tools/deploy/server-init.sh 生成于 $(date '+%F %T')
 # ⚠️ 本文件含真实密钥：不要入库、不要贴进聊天、不要放进截图
-JWT_SIGNING_KEY=$(openssl rand -base64 48 | tr -d '\n')
+JWT_SIGNING_KEY=$(opensD rand -base64 48 | tr -d '\n')
 POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '\n' | tr '/+' '_-')
 POSTGRES_USER=kky
 POSTGRES_DB=blog_stage2
@@ -159,7 +163,7 @@ curl -fsS "http://127.0.0.1:8080/api/site/config" | head -c 200; echo
 # 中文全文检索依赖 zhparser —— 这条最能证明"镜像搬对了"
 curl -fsS "http://127.0.0.1:8080/api/posts/search?keyword=%E5%8D%9A%E5%AE%A2&page=1&pageSize=1" >/dev/null \
   && ok "全文检索可用（zhparser 生效）" \
-  || bad "全文检索失败 —— 多半是 PG 镜像不是 blog-postgres-zhparser:18"
+  || bad "全文检索失败 —— 多半是 PG 镜像不对（应为 mixdeve/postgres-zhparser:18）"
 # 统一响应体：缺必填参数应返回 4001 而不是 ProblemDetails
 curl -sS "http://127.0.0.1:8080/api/posts/search" | grep -q '"code":4001' \
   && ok "统一响应体生效" \

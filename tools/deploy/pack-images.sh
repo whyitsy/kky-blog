@@ -6,6 +6,9 @@
 #   ② 构建产物与开发机完全一致 —— 少一个"服务器上构建出来不一样"的变量
 #   ③ 2 核 2G 的机器上跑 `dotnet publish` + `vite build` 有 OOM 风险
 #
+# ⚠️ 本脚本只**构建**两个镜像（webapi / nginx）。
+#    PG 与 Redis 是第三方镜像，走 `docker compose pull`，不构建 —— 见下面的实测体积。
+#
 # ⚠️ **PG 镜像不要每次传。** 实测（2026-09-15，gzip 后的 tar.gz）：
 #     全部四个（首次部署用 --all）      ≈590 MB
 #     仅 nginx（前端改动）               25 MB   ← 23 倍差距
@@ -14,11 +17,15 @@
 #     PG 单独                          439 MB   ← 它一个季度也未必变一次
 #     Redis 单独                        ≈18 MB   ← 官方镜像，不构建只 pull
 #   所以默认只打应用镜像，PG / Redis 要用 --all 显式带。
+#
+#    📌 2026-09-19 起 PG 也改成「社区镜像 + 只 pull 不构建」
+#       （mixdeve/postgres-zhparser，官方 postgres + zhparser，约 157 MB），
+#       所以上面那个 439 MB 是**自编译时代**的历史数字。
+#       服务器首装时 `docker compose pull pgsql` 即可，未必要打进包里。
 set -euo pipefail
 
 ALL_SERVICES=(webapi nginx pgsql redis)
 DEFAULT_SERVICES=(webapi nginx)
-PG_IMAGE="blog-postgres-zhparser:18"
 
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 ok()   { printf '  ✅ %s\n' "$1"; }
@@ -31,10 +38,12 @@ usage() {
   bash tools/deploy/pack-images.sh                   # 应用镜像（webapi + nginx）—— 日常用这个
   bash tools/deploy/pack-images.sh --only nginx      # 只改了前端 → 只打 nginx（25 MB）
   bash tools/deploy/pack-images.sh --only webapi     # 只改了后端（103 MB）
-  bash tools/deploy/pack-images.sh --all             # 四个都打（首次部署）
+  bash tools/deploy/pack-images.sh --all             # 四个镜像都带上（首次部署）
   bash tools/deploy/pack-images.sh --changed [<ref>] # 按 git 改动自动判断该打哪些
   bash tools/deploy/pack-images.sh --dry-run         # 只预览会打哪些，不构建
   bash tools/deploy/pack-images.sh --out <目录>      # 换输出目录（默认 ./dist-images）
+
+  ⚠️ 只有 webapi / nginx 是**构建**出来的；pgsql / redis 是第三方镜像，走 pull。
 
 改了什么 → 该打哪个（这张表就是 --changed 的依据，也建议你记住）：
 
@@ -42,17 +51,14 @@ usage() {
   Blog.FrontEnd/**                             → nginx    （前端产物打在 nginx 镜像里）
   deploy/nginx.conf  deploy/nginx.Dockerfile   → nginx
   deploy/webapi.Dockerfile                     → webapi
-  deploy/postgres-zhparser.Dockerfile          → pgsql    （罕见）
-  deploy/postgres-init/**                      → pgsql    （罕见）
+  docker-compose.yml                           → 不用重建镜像
+      ⚠️ **例外**：改了 `pgsql:` 或 `redis:` 下面那行 `image:` 时，
+         要手动 `--only pgsql` / `--only redis` 把新版本一起带上去 ——
+         否则服务器会去 Docker Hub 拉，而那个版本你可能没测过。
   其它（tools/**、docs/**、根目录 README.md）   → 不用重建镜像
                                                  只是其中有些文件要 scp 过去（README §4）
 
-  docker-compose.yml                           → 不用重建镜像
-      ⚠️ **例外**：改了 `redis:` 下面那行 `image:` 时，
-         要手动 `--only redis` 把新版本一起带上去 ——
-         否则服务器会去 Docker Hub 拉，而那个版本你可能没测过。
-
-  ⚠️ 不认识的路径会被当成"可能影响全部"，直接打三个（含 439 MB 的 PG）。
+  ⚠️ 不认识的路径会被当成"可能影响全部"，四个都打。
      这是刻意的：**少传一个镜像的失败方式是静默的** ——
      服务器上跑着旧镜像而你看不出来，正是本项目反复记录的那类问题。
 EOF
@@ -95,7 +101,7 @@ services_from_path() {
     Blog.FrontEnd/*)                                      echo nginx ;;
     deploy/nginx.conf|deploy/nginx.Dockerfile)            echo nginx ;;
     deploy/webapi.Dockerfile)                             echo webapi ;;
-    deploy/postgres-zhparser.Dockerfile|deploy/postgres-init/*) echo pgsql ;;
+    archive/deploy-pg-zhparser/*)                         echo pgsql ;;
     docker-compose.yml|tools/*|docs/*|learn/*|archive/*|plan/*|.github/*) ;;  # 不影响镜像
     README.md|*.md|.gitignore|.editorconfig|LICENSE) ;;                       # 根目录杂项
     *)                                                    echo ALL ;;
@@ -175,7 +181,16 @@ done
 
 if [ -n "$DRY_RUN" ]; then
   step "只预览，不构建"
-  ok "会构建并打包：${SERVICES[*]}"
+  # 区分「构建」与「拉取」：pgsql / redis 是第三方镜像，只 pull 不 build
+  _b=""; _p=""
+  for s in "${SERVICES[@]}"; do
+    case "$s" in
+      pgsql|redis) _p="$_p $s" ;;
+      *)           _b="$_b $s" ;;
+    esac
+  done
+  [ -n "$_b" ] && ok "会构建并打包：${_b# }"
+  [ -n "$_p" ] && ok "会拉取并打包（不构建）：${_p# }"
   exit 0
 fi
 
@@ -183,19 +198,30 @@ mkdir -p "$OUT_DIR"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 TAR="${OUT_DIR}/blog-images-${STAMP}.tar.gz"
 
-# ── 从 compose 读 redis 的 image，避免版本在两处写重（写重就会漂）──────────
-redis_image() {
-  local img
-  img="$(awk '/^  redis:/{f=1;next} f&&/^  [a-z]/{f=0} f&&/^[[:space:]]+image:/{print $2;exit}' docker-compose.yml)"
-  [ -n "$img" ] || die "没能从 docker-compose.yml 读出 redis 的 image"
+# ── 从 compose 读第三方镜像的 image，避免版本在两处写重（写重就会漂）──────
+# pgsql 与 redis 都是"只拉不建"的第三方镜像，版本**唯一来源**是 docker-compose.yml。
+compose_image() {
+  local svc="$1" img
+  img="$(awk -v s="  ${svc}:" '$0==s{f=1;next} f&&/^  [a-z]/{f=0} f&&/^[[:space:]]+image:/{sub(/^[[:space:]]+image:[[:space:]]*/,"");print;exit}' docker-compose.yml)"
+  [ -n "$img" ] || die "没能从 docker-compose.yml 读出 ${svc} 的 image"
+  # compose 里可能写成 ${VAR:-default}，取出 default 部分
+  case "$img" in
+    '${'*':-'*'}') img="${img#*:-}"; img="${img%\}}" ;;
+  esac
   printf '%s' "$img"
 }
 
-# ── 构建（redis 是官方镜像，只 pull 不 build）────────────────────────────
+# 兼容旧调用点
+redis_image() { compose_image redis; }
+
+# ── 构建 / 拉取（pgsql 与 redis 都是第三方镜像，只 pull 不 build）──────────
 BUILD_SERVICES=()
 PULL_SERVICES=()
 for s in "${SERVICES[@]}"; do
-  if [ "$s" = "redis" ]; then PULL_SERVICES+=(redis); else BUILD_SERVICES+=( "$s" ); fi
+  case "$s" in
+    redis|pgsql) PULL_SERVICES+=( "$s" ) ;;
+    *)           BUILD_SERVICES+=( "$s" ) ;;
+  esac
 done
 
 if [ "${#BUILD_SERVICES[@]}" -gt 0 ]; then
@@ -203,10 +229,11 @@ if [ "${#BUILD_SERVICES[@]}" -gt 0 ]; then
   docker compose build "${BUILD_SERVICES[@]}"
 fi
 if [ "${#PULL_SERVICES[@]}" -gt 0 ]; then
-  # Redis 没有 build 段 —— 它不需要本项目定制（对比 PG：必须自编译 zhparser）。
+  # pgsql / redis 都没有 build 段 —— 它们是第三方镜像，本项目不需要定制
+  # （PG 的中文分词由社区镜像 mixdeve/postgres-zhparser 提供）。
   # ⚠️ 但仍然要**打进包里**：否则服务器首次部署必须能连上 Docker Hub，
   #    那是个不受控的外部依赖（docs/05 §8.5 坑 B 记过 Docker Hub 不可达）。
-  step "拉取官方镜像：${PULL_SERVICES[*]}（不构建，只 pull）"
+  step "拉取第三方镜像：${PULL_SERVICES[*]}（不构建，只 pull）"
   docker compose pull "${PULL_SERVICES[@]}"
 fi
 
@@ -215,7 +242,7 @@ step "核对镜像"
 SAVE_ARGS=()
 for s in "${SERVICES[@]}"; do
   case "$s" in
-    pgsql)  img="$PG_IMAGE" ;;
+    pgsql)  img="$(compose_image pgsql)" ;;
     webapi) img="blog-webapi:local" ;;
     nginx)  img="blog-nginx:local" ;;
     redis)  img="$(redis_image)" ;;
@@ -227,7 +254,7 @@ for s in "${SERVICES[@]}"; do
 done
 
 # ── 打时间戳 tag（回滚要用，见 README §5）───────────────────────────────
-# 只给自建的两个镜像打：redis / pgsql 的版本写在 compose 里，回滚靠改那一行即可。
+# 只给自建的两个镜像打：pgsql / redis 的版本写在 compose 里，回滚靠改那一行即可。
 for s in "${SERVICES[@]}"; do
   case "$s" in
     webapi) docker tag blog-webapi:local "blog-webapi:${STAMP}"; SAVE_ARGS+=("blog-webapi:${STAMP}") ;;
@@ -249,8 +276,10 @@ git rev-parse HEAD > "$STAMP_FILE" 2>/dev/null || true
 echo
 echo "下一步："
 printf '%s\n' "${SERVICES[@]}" | grep -qx pgsql || {
-  echo "  ⚠️ 这个包里**不含 PG 镜像**。服务器上必须已经有 ${PG_IMAGE}；"
-  echo "     首次部署请改用：bash tools/deploy/pack-images.sh --all"
+  echo "  ⚠️ 这个包里**不含 PG 镜像**（$(compose_image pgsql)）。"
+  echo "     服务器上若还没有它，有两种办法："
+  echo "       a) 服务器能连 Docker Hub：cd /opt/blog && docker compose pull pgsql"
+  echo "       b) 服务器不能连外网：本地 bash tools/deploy/pack-images.sh --all 再传一次"
 }
 echo "  scp ${TAR} docker-compose.yml <用户>@<服务器>:/opt/blog/"
 echo "  # 服务器：cd /opt/blog && gunzip -c $(basename "$TAR") | docker load && docker compose up -d"

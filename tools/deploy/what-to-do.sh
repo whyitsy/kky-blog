@@ -42,14 +42,19 @@ while IFS= read -r f; do
     Blog.Backend/*|Blog.FrontEnd/*) ;;
     deploy/nginx.conf|deploy/nginx.Dockerfile|deploy/webapi.Dockerfile) ;;
     # ── 不在 GHCR 里的：需要人工动作 ──
-    deploy/postgres-zhparser.Dockerfile|deploy/postgres-init/*) NEED_PG=1 ;;
+    # ⚠️ 2026-09-19 起 PG 也是第三方镜像（mixdeve/postgres-zhparser），
+    #    跟着 compose 里的 image 行走，所以这里**不再**因 deploy/ 下的 PG 文件而告警。
     docker-compose.yml|docker-compose.prod.yml) NEED_COMPOSE=1 ;;
     tools/backup/*) NEED_BACKUP=1 ;;
     tools/deploy/*.sh) NEED_DEPLOY_SH=1 ;;
     # ── 服务器不需要的 ──
     tools/*) ;;                       # load / e2e 只在开发机跑
     docs/*|learn/*|archive/*|plan/*|.github/*) ;;
-    *.md|LICENSE|.gitignore|.editorconfig|.dockerignore) ;;
+    # deploy/ 下**除上面已列出的**（两个 Dockerfile + nginx.conf）都不上服务器：
+    # 编排只读 docker-compose*.yml。留这条兜底是为了让将来在 deploy/ 增删文件
+    # 不再落进"不认识"分支 —— 那种告警会训练你忽略真正的告警。
+    deploy/*) ;;
+    *.md|LICENSE|.gitignore|.editorconfig|.dockerignore|.env.example) ;;
     *) UNKNOWN="${UNKNOWN}${f}
 " ;;
   esac
@@ -60,6 +65,12 @@ done <<< "$FILES"
 if git diff -U0 "$BASE" "$TARGET" -- docker-compose.yml 2>/dev/null \
      | grep -qE '^\+[^+].*image:[[:space:]]*redis'; then
   NEED_REDIS=1
+fi
+
+# PG 同理（2026-09-19 起它也是第三方镜像，版本同样只写在 compose 的 image 行里）。
+if git diff -U0 "$BASE" "$TARGET" -- docker-compose.yml 2>/dev/null \
+     | grep -qE '^\+[^+].*image:[[:space:]]*.*(postgres|pgsql)'; then
+  NEED_PG=1
 fi
 
 SHORT="$(git rev-parse --short "$TARGET" 2>/dev/null || echo "$TARGET")"
@@ -91,12 +102,15 @@ fi
 
 if [ -n "$NEED_PG" ]; then
   cat <<'EOF'
-- **PG 镜像（zhparser）改了** —— 它不在 GHCR 里（439 MB，一年变不了几次）。
+- **`docker-compose.yml` 里 PostgreSQL 的 `image:` 行改了** —— 新版本要一起带上，
+  否则服务器会去 Docker Hub 拉一个**你没测过**的版本。
   ```bash
   bash tools/deploy/pack-images.sh --only pgsql
   scp dist-images/blog-images-*.tar.gz <用户>@<服务器>:/opt/blog/
   # 服务器上：gunzip -c blog-images-*.tar.gz | docker load
   ```
+  （PG 与 Redis 一样是第三方镜像，约 157 MB；服务器能连 Docker Hub 时
+    也可以直接 `cd /opt/blog && docker compose pull pgsql`，不必打包。）
 EOF
 fi
 
