@@ -20,7 +20,6 @@ onMounted(async () => {
     //    （loading 置回 false、列表仍为空 → 显示「暂无标签」），
     //    但 Promise 的 rejection **没有人接**，控制台会冒出 Uncaught (in promise)。
     //    将来一旦接入全局的 unhandledrejection 上报，它就会变成一条假告警。
-    //    （这个不一致由 tools/e2e 的 07-public-lists-failure 发现并守护）
     tags.value = []
     console.error('[tags] 加载标签列表失败：', e)
   } finally {

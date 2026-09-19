@@ -541,8 +541,8 @@ jobs:
   #
   #   ① **服务器不用再收 128 MB 的 tar.gz。** Docker 按**层**拉取，
   #      改后端时通常只有应用那一层变（几 MB），而不是整个镜像。
-  #      本地 `pack-images.sh` 那条路仍然保留 —— **首次部署仍然用它**
-  #      （PG 镜像 439 MB，没必要每次让 CI 重建重推）。
+  #      本地打包那条路仍然保留（`tools/deploy/deploy.sh build`）—— **首次部署仍然用它**
+  #      （PG 镜像约 157 MB，没必要每次让 CI 重建重推）。
   #
   #   ② ⭐ **补上「CI 绿」和「线上跑的那版」之间的完整性缺口。**
   #      在此之前，你部署的镜像是**本地**在 CI 绿了之后构建的 ——
@@ -639,7 +639,7 @@ jobs:
             # ⚠️ 不可变身份用**裸** `github.sha`，不要用 `type=sha`。
             #
             # 为什么：`type=sha` 产出的是 **`sha-<完整sha>`**（前缀是为了避免与版本号混淆）。
-            # 而部署契约（docs/05 §8.7.1、tools/deploy/server-update.sh）写的是
+            # 而部署契约（docs/05 §8.7.1、tools/deploy/deploy.sh 的 update）写的是
             # 「tag 就是那次合并的提交 sha」—— 服务器上就是拿 `:<sha>` 去 pull 的。
             # 换成带前缀的形式后，线上实测直接 404：
             #   failed to resolve reference "...-webapi:922527d...": not found
@@ -683,7 +683,7 @@ jobs:
           flavor: latest=auto
           tags: |
             # 与 webapi 完全同一套规则（裸 sha，不是 type=sha 的 sha- 前缀形式）——
-            # 两个镜像的 tag 必须一致，否则 server-update.sh 一次要拉两个，
+            # 两个镜像的 tag 必须一致，否则 deploy.sh update 一次要拉两个，
             # 其中一个形式不对就整个失败（线上实测踩过）
             type=raw,value=${{ github.sha }}
             type=raw,value=${{ steps.version.outputs.version }}
@@ -726,7 +726,7 @@ jobs:
             echo
             echo '### 服务器更新'
             echo '```bash'
-            echo "bash tools/deploy/server-update.sh ${{ github.sha }}"
+            echo "bash tools/deploy/deploy.sh update ${{ github.sha }}"
             echo '```'
             echo '> 用 **sha**（不可变），不要用 `:latest`。'
             echo '> 部署完可以确认线上版本：`curl -s https://<站点>/api/version`。'
@@ -734,28 +734,5 @@ jobs:
 
       # ⚠️ 光推镜像**不够**：GHCR 里只有 webapi / nginx 两个镜像。
       #    docker-compose.yml、PG 镜像、tools/ 下的脚本都不在里面 ——
-      #    改了那些却只跑 server-update.sh，会出现「镜像换了、配置没换」，
-      #    表现为某个功能不生效而**不报错**（本项目最防的那类静默失败）。
-      #
-      #    判断逻辑放在 `tools/deploy/what-to-do.sh` 里而不是内联在这里：
-      #    ① 你自己也能跑（`bash tools/deploy/what-to-do.sh origin/main HEAD`），
-      #       不需要为了看结论去翻 CI 日志；
-      #    ② 只有一个真相来源，不会和文档里的表各写一份、慢慢漂移。
-      - name: 判断本次改动是否还需要额外动作
-        run: |
-          set -uo pipefail
-
-          # push 事件里有 before（上一次的 main 顶端）；workflow_dispatch 没有
-          BASE='${{ github.event.before }}'
-          if ! git rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null 2>&1; then
-            BASE="$(git rev-parse --verify --quiet 'HEAD^' || true)"
-          fi
-
-          if [ -z "$BASE" ]; then
-            echo '> ℹ️ 拿不到对比基准（浅克隆 / 首次提交），跳过「还需要做什么」的判断。' \
-              >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          bash tools/deploy/what-to-do.sh "$BASE" '${{ github.sha }}' >> "$GITHUB_STEP_SUMMARY"
-
+      #    改了那些却只跑 update，会出现「镜像换了、配置没换」，而且**不报错**。
+      #    逐条对照表见 tools/deploy/README.md §6「改了东西之后要做什么」。
