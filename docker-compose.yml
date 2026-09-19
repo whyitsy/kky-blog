@@ -90,7 +90,7 @@ services:
       # ⚠️ 用 condition: service_healthy 而不是默认的 service_started。
       #    "容器启动了" != "数据库能连了"。
       #    应用启动时会执行数据库迁移，PG 没就绪就直接崩 —— 这是 CI/部署里
-      #    最常见的随机失败来源（learn/02-CI-CD实践.md §4.3 第 4 条）。
+      #    最常见的随机失败来源（CI 里同样有一道"等待 PostgreSQL 就绪"的轮询）。
       pgsql:
         condition: service_healthy
       redis:

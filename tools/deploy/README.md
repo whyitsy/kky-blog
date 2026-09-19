@@ -21,16 +21,23 @@
 ① 开发
    改代码 ──push──► PR ──► CI 四作业并行（卫生 / 前端 / 后端+测试 / 依赖扫描）
                                 │
-                          合并进 main
+                    合并进 main（或推 v* tag）
                                 ▼
-② CI 发布镜像（publish 作业，只在 main 与 v* tag 上跑）
+② CI 发布镜像（publish 作业：三个检查作业全绿之后才跑）
    构建 webapi + nginx ──► 推 GHCR
    tag = <commit-sha>（不可变），另加人读的 v0.0.0-main.<短sha>
    ★ 打 v* tag 时额外移动 :latest
-   作业摘要里直接给出下一步命令：bash tools/deploy/deploy.sh update <sha>
                                 │
                                 ▼
-③ 服务器日常更新（几 MB，只拉变化的层）
+③ CI 自动部署（deploy 作业：publish 成功之后）
+   ├─ 把仓库里的 docker-compose*.yml + tools/deploy/deploy.sh 同步到 /opt/blog
+   │    （以后不必靠人记住"改了脚本要 scp"）
+   ├─ SSH 执行 deploy.sh update <sha> —— 也就是下面 ④ 这一组动作
+   └─ 从公网核对 /api/version 报出的就是这次 sha（对不上就红）
+   （PR 与手动触发都不会走到这里；首次部署也不会 —— 见 ⑤）
+                                │
+                                ▼
+④ 服务器更新（几 MB，只拉变化的层）
    deploy.sh update <sha>
      ├─ 从 GHCR 拉这两个镜像
      ├─ 写 .env 的 WEBAPI_IMAGE / NGINX_IMAGE
@@ -38,9 +45,10 @@
      ├─ restart nginx        ← 否则 502（见 §7）
      └─ 校验 /health 与"容器真的在跑这个镜像"
 
-④ 首次部署（一次性，走 ③ 之外的本地打包路径）
+⑤ 首次部署（一次性，走 ④ 之外的本地打包路径）
    本地   deploy.sh build all            →  dist-images/blog-images-<时间戳>.tar.gz
-   scp    tar.gz + docker-compose.yml + docker-compose.prod.yml + tools/deploy/deploy.sh → /opt/blog
+   scp    tar.gz + docker-compose.yml + docker-compose.prod.yml → /opt/blog
+          tools/deploy/deploy.sh → /opt/blog/tools/deploy/   ← ⚠️ 路径不能变，CI 就在那里找它
    服务器 deploy.sh init <包> <域名>
      ├─ swap（2G 机器必须，自动建 + 写 fstab）
      ├─ 生成 .env（密钥在服务器现生成）
@@ -87,6 +95,10 @@ GitHub → Packages → 对应 package → Settings → visibility 改成 **publ
 ---
 
 ## 3. 日常更新
+
+**这一步现在是自动的**：`deploy` 作业在「合并进 main / 推 `v*` tag」且三个检查作业全绿、镜像推送成功之后替你执行它，
+并会在跑之前把本仓库的 `docker-compose*.yml` 与 `tools/deploy/deploy.sh` 同步到服务器。
+手工跑只在这几种情况需要：排查部署问题、CI 挂了但要紧急上线、或先 `--check` 探一下能不能拉到。
 
 ```bash
 # sha 从 CI 的 publish 作业摘要里抄
@@ -141,15 +153,18 @@ bash tools/deploy/deploy.sh https blog.example.com [you@example.com]
 
 ## 6. 改了东西之后要做什么
 
-GHCR 里只有 **webapi / nginx** 两个镜像。compose 文件、脚本、PG 镜像都不在里面 ——
-改了那些却只跑 `update`，会出现「镜像换了、配置没换」，而且**不报错**。
+GHCR 里只有 **webapi / nginx** 两个镜像。compose 文件、脚本、PG 镜像都不在里面。
+
+⚠️ `docker-compose*.yml` 与 `tools/deploy/deploy.sh` **由 CI 在每次自动部署前同步**（见 §1 第 ③ 步），
+所以走 CI 时不必再手工传；但**首次部署**与**绕过 CI 的手工部署**仍要自己传。
+同步是**覆盖式**的 —— 想改这三个文件请改仓库，别只改服务器。
 
 | 改了什么 | 要做什么 |
 |---|---|
-| `Blog.Backend/**`、`Blog.FrontEnd/**`、`deploy/{webapi,nginx}.Dockerfile`、`deploy/nginx.conf` | 等 CI 绿 → `deploy.sh update <sha>` |
-| `docker-compose.yml`、`docker-compose.prod.yml` | 还要 `scp` 到 `/opt/blog/` |
+| `Blog.Backend/**`、`Blog.FrontEnd/**`、`deploy/{webapi,nginx}.Dockerfile`、`deploy/nginx.conf` | 等 CI 绿 → 自动部署（或手工 `deploy.sh update <sha>`） |
+| `docker-compose.yml`、`docker-compose.prod.yml` | 走 CI：无需动作（会自动同步）；手工部署：`scp` 到 `/opt/blog/` |
 | `docker-compose.yml` 里 `pgsql:` / `redis:` 的 `image:` 行 | 服务器执行 `docker compose pull pgsql redis && docker compose up -d pgsql redis`（数据在命名卷里，不会丢） |
-| `tools/deploy/deploy.sh` | 还要 `scp` 到 `/opt/blog/tools/deploy/` |
+| `tools/deploy/deploy.sh` | 走 CI：无需动作（会自动同步）；手工部署：`scp` 到 `/opt/blog/tools/deploy/` |
 | `tools/load/**`、`docs/**`、`learn/**` | 服务器不需要任何动作 |
 
 ---

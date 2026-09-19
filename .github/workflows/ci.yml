@@ -1,21 +1,21 @@
 # ============================================================================
 # CI：每次 push / PR 都用一台**干净的 Linux 机器**重跑全部验证
 #
-# 为什么这件事对本项目特别重要（见 learn/02-CI-CD实践.md §2.1）：
-#   开发环境是 **Windows 编译 + WSL 发命令**，而部署目标是 **Linux + Nginx**。
-#   这个落差只会在部署当天暴露 —— 除非有一台干净的 Linux 机器每次都替你走一遍。
 #
-# 五个作业。前四个互不依赖，**并行**运行：
-#   hygiene   行尾检查（最快，秒级失败）
-#   frontend  类型检查 + 构建
-#   backend   格式检查 + 编译 + 全部测试（含需要真实 PostgreSQL 的集成测试）+ 覆盖率
-#   security  依赖漏洞扫描（NuGet + npm，**只报告不阻断**）
-# 第五个（publish）只在**合并进 main 之后**、或**推送 v* 版本 tag 时**跑：
-# 把应用镜像推到 GHCR，让服务器 `docker compose pull` 就能更新（详见该作业的注释）。
-# 版本号来自 git tag，镜像 tag 规则与回滚流程见 docs/05 §8.7.1。
+# 六个作业，是一条链：
 #
-# 设计依据与原理讲解：learn/02-CI-CD实践.md
-# 覆盖率为什么必须排除迁移代码：Blog.Backend/coverage.runsettings 的注释
+#   先并行跑四个检查：
+#     hygiene   行尾检查（最快，秒级失败）
+#     frontend  类型检查 + 构建
+#     backend   格式检查 + 编译 + 全部测试（含需要真实 PostgreSQL 的集成测试）+ 覆盖率
+#     security  依赖漏洞扫描（NuGet + npm，**只报告不阻断** —— 所以它不在这条链上）
+#
+#   然后（仅在「合并进 main、或推送 v* 版本 tag」时）依次：
+#     publish   三个检查全绿 → 构建并推送应用镜像到 GHCR
+#     deploy    publish 成功 → 同步 compose / 部署脚本 → SSH 更新服务器 → 从公网核对版本
+#
+# 也就是说：**合并进 main 就是上线**（tag 只是额外的「正式发布」标记）。
+# 首次部署不在这里（服务器上还没有 compose 与 .env），仍走本地打包，见 tools/deploy/README.md
 # ============================================================================
 
 name: CI
@@ -23,18 +23,21 @@ name: CI
 on:
   push:
     branches: [main]
-    # 版本 tag（v2026.09.17、v1.2.3 都可以）也触发流水线。
-    # 打 tag 即「发布」：publish 作业会把镜像额外打上 <tag>，并**只在这时**更新 :latest。
-    tags: ['v*']
+    tags: ["v*"]
   pull_request:
     branches: [main]
-  # 允许在 Actions 页面手动触发（排查问题、重跑时用）
+  # 允许在 Actions 页面手动触发，**只跑四个检查作业**：不推镜像、不部署。
+  # 理由：手动触发时 ref 可以是任意分支，让它发布或部署等于"把功能分支发到生产"。
   workflow_dispatch:
 
-# 同一分支上新的推送会取消仍在跑的旧运行，避免排队浪费时间与额度
+# 同一分支上新的推送会取消仍在跑的旧运行，避免排队浪费时间与额度。
+#
+# ⚠️ 但**只对 PR 取消**：main 与 v* tag 的推送后面跟着 deploy 作业，
+#    取消一个正在部署的运行会把线上留在半更新状态（且新旧两次部署会互相抢）。
+#    这两种 ref 改为排队 —— 排队最坏是多等一轮，取消无法撤销。
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # 全局环境变量。
 # 注意：这里**没有任何密钥**，也不需要密钥 ——
@@ -47,7 +50,6 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 
 jobs:
-
   # ══════════════════════════════════════════════════════════════════════
   # 作业一：卫生检查 —— 最快，期望它最先失败
   # ══════════════════════════════════════════════════════════════════════
@@ -58,9 +60,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # 把 docs/05 §7.2 的"人肉纪律"变成机器强制。
-      # 仓库历史上真发生过「39 个文件仅因 CRLF/LF 差异被整体纳入提交」。
-      # 这条检查成本最低、收益最高，所以放在第一个作业里。
       - name: 检查行尾是否被写成 CRLF
         run: |
           if git ls-files --eol | grep -q 'w/crlf'; then
@@ -72,7 +71,7 @@ jobs:
           echo "OK：未发现 CRLF 行尾"
 
   # ══════════════════════════════════════════════════════════════════════
-  # 作业二：前端（与后端无依赖，完全并行）
+  # 作业二：前端
   # ══════════════════════════════════════════════════════════════════════
   frontend:
     name: 前端（类型检查 + 构建）
@@ -86,18 +85,14 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: "24"
           # 内置缓存：按 package-lock.json 的哈希做缓存键
           cache: npm
           cache-dependency-path: Blog.FrontEnd/package-lock.json
 
-      # ci 而不是 install：
-      #   - 严格按 lock 文件安装，构建可复现
-      #   - lock 与 package.json 不一致时**直接失败**，而不是悄悄改 lock
       - name: 安装依赖
         run: npm ci
 
-      # 下面两条与 docs/05 §4.3 的手工命令完全一致
       - name: 类型检查
         run: npx vue-tsc -b --force
 
@@ -116,7 +111,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       # NuGet 缓存：CI 里 restore 通常是最大的时间开销。
       # 缓存键用 csproj 的哈希 —— 依赖清单没变就命中缓存，变了自动换新。
@@ -128,26 +123,19 @@ jobs:
 
       # ── 起数据库 ────────────────────────────────────────────────────
       #
+      # services: 官方提供的镜像服务.
       # 为什么用 `docker run` 而不是 `services:` ？
-      #   ① 这是 learn/02 §4.2 讨论的方案 A：不需要镜像仓库，起得最直接。
-      #   ② 集成测试需要 **zhparser 扩展**（Posts.SearchVector 是生成列，
+      #   集成测试需要 **zhparser 扩展**（Posts.SearchVector 是生成列，
       #      表达式用了 to_tsvector('chinese', ...)），而官方镜像里没有它。
-      #
-      # ⚠️ 这里**曾经**是 `docker build -f deploy/postgres-zhparser.Dockerfile`：
-      #    本项目原来自编译 zhparser。2026-09 起改用社区维护的
-      #    `mixdeve/postgres-zhparser`（官方 postgres + zhparser + SCWS），
-      #    于是这个 Dockerfile 已删除，CI 只需 pull —— 每次少编译一次 SCWS/zhparser。
-      #
-      # ⚠️ tag 必须与 docker-compose.yml 里那行 `image:` 保持一致。
+
       - name: 拉取带 zhparser 的 PostgreSQL 镜像
         run: docker pull mixdeve/postgres-zhparser:18
 
       - name: 启动 PostgreSQL 与 Redis
         run: |
-          # ⚠️ 凭证必须与 Blog.Backend/Blog.WebApi/appsettings.Development.json 一致。
-          #    原因：测试夹具 BlogApiFactory.ResolveDevelopmentConnectionString()
-          #    会**读取该文件**拿主机/端口/用户名/密码，只替换库名。
-          #    也就是说 CI 里的 PG 必须监听 localhost:5432 且用户是 kky。
+          # 凭证必须与下一步测试传给夹具的 BLOG_CONNECTION 一致。
+          # 夹具的连接串解析顺序是「环境变量 → appsettings.Development.json」，
+          # 所以 CI 里不依赖开发机那份配置是否恰好相同。
           docker run -d --name pgsql \
             -e POSTGRES_USER=kky \
             -e POSTGRES_PASSWORD=123456 \
@@ -155,18 +143,14 @@ jobs:
             -p 5432:5432 \
             mixdeve/postgres-zhparser:18
 
-          # 缓存连接串在 appsettings.Development.json 里是 localhost:6379。
+          # Redis 地址仍取自 appsettings.Development.json（localhost:6379），夹具会把它
+          # 换成一个随机 db index 做跨运行隔离。
           # 限流桶也在这里，但测试夹具已把它关掉（RateLimit:Enabled=false）。
-          # ⚠️ 版本与 docker-compose.yml 保持一致，且**写死到 patch 位** ——
-          #    在 CI 里用浮动 tag 会造出"本地绿、线上红"的版本漂移。
           docker run -d --name redis -p 6379:6379 redis:7.4.11-alpine
 
       - name: 等待 PostgreSQL 就绪
         run: |
-          # ⚠️「容器启动了」!=「数据库能连了」。
-          #    少了这一步，流水线会**随机失败**，而你会误以为是代码问题。
-          #    随机失败比稳定失败更有害：它训练你"重跑一遍就好了"，
-          #    从而彻底摧毁你对流水线的信任（learn/02 §4.3）。
+          #「容器启动了」!=「数据库能连了」。
           for i in $(seq 1 60); do
             if docker exec pgsql pg_isready -U kky -d blog_stage2 >/dev/null 2>&1; then
               echo "PostgreSQL 就绪（等待 $((i * 2)) 秒）"
@@ -179,13 +163,10 @@ jobs:
           exit 1
 
       # 先单独验证分词可用，再跑测试。
-      # 这样万一环境有问题，失败信息是"zhparser 不可用"，
-      # 而不是那句著名的、毫无信息量的
-      # "The server has not been started or no web application was configured"。
       #
-      # ⚠️ 这一步**只**证明「扩展在、配置能跑起来」，**不**证明映射完整。
-      #    镜像自带的 entrypoint 脚本建出的 `chinese` 只映射 n,v,a,i,e,l，
-      #    缺 j,q —— 缺的映射由 EF 迁移补齐，所以映射完整性由测试之后那一步守。
+      # 这一步**只**证明「扩展在、配置能跑起来」，**不**证明映射完整。
+      # 镜像自带的 entrypoint 脚本建出的 `chinese` 只映射 n,v,a,i,e,l，
+      # 缺 j,q —— 缺的映射由 EF 迁移补齐，所以映射完整性由测试之后那一步守。
       - name: 校验 zhparser 与中文分词配置可用
         run: |
           docker exec pgsql psql -U kky -d blog_stage2 -tAc \
@@ -198,20 +179,6 @@ jobs:
       - name: 还原依赖
         run: dotnet restore Blog.Backend/Blog.Backend.slnx
 
-      # 缺口 G6：没有 lint / 格式门禁。
-      #
-      # ⚠️ 只查 whitespace，不查 analyzer：
-      #    实测 `dotnet format --severity info` 在本仓库报 21 条 analyzer 建议
-      #    （CA2016 / CA1873 / CA1816 / CA1861 / SYSLIB1045 / ASP0025）。
-      #    一次性把它们变成门禁 = 21 处改动 + 长期噪音，属于过度工程化。
-      #
-      # ⚠️ 覆盖范围由仓库根的 .editorconfig 决定，其中 end_of_line = lf 是关键：
-      #    dotnet format 在缺少该文件时的默认行尾是 CRLF，
-      #    会与 .gitattributes 冲突并让上面的行尾检查变红。
-      #
-      # 放在这里而不是 hygiene 作业：那个作业刻意不装 .NET SDK（5 秒跑完），
-      # 装 SDK + restore 会让它从"最快失败"变成最慢之一。
-      # 这里紧跟 restore，复用还原结果，且仍**早于**编译与测试 —— 失败依然快。
       - name: 检查 C# 格式（.editorconfig）
         run: |
           dotnet format Blog.Backend/Blog.Backend.slnx whitespace --verify-no-changes --no-restore \
@@ -221,21 +188,20 @@ jobs:
       - name: 编译（Release）
         run: dotnet build Blog.Backend/Blog.Backend.slnx --no-restore --configuration Release
 
-      # 跑全部测试（单元 + 集成 + 契约测试）。**具体条数刻意不写在这里** ——
-      # 每加一个用例就过时一次，而文档规范（docs/00 §3）明确禁止写死会变的数字。
-      # 实时条数以作业摘要与测试输出为准。
-      #
-      # 覆盖率**只产出报告、不设阈值**：一开始就卡阈值会逼人写垃圾测试来凑数（learn/02 §5.2）。
+      # 跑全部测试（单元 + 集成 + 契约测试）。
       #
       # ⚠️ 用 --settings 而不是 --collect：
       #    排除规则（EF 迁移、源生成代码）写在 coverage.runsettings 里，
       #    而排除**只能**通过 runsettings 传。不排除的话数字是没有意义的 ——
       #    实测未排除时 Blog.Infrastructure 显示 91.8%，其中 73% 的行数是 EF 生成的迁移。
       #    两者同时给会重复挂载收集器，所以这里只留 --settings。
-      #
-      #    ⚠️ 代价：覆盖率从此依赖这个文件。它被删掉时 dotnet test 会**照常变绿**，
-      #    所以下一步有一道显式检查兜住这个静默失效。
+
       - name: 跑测试并收集覆盖率
+        env:
+          # 集成测试夹具优先读这个变量（回退到 appsettings.Development.json）。
+          # 与设计期工厂 BlogDbContextFactory 同名同义：一个变量决定「这次运行连哪个 PG」，
+          # 于是 CI 不再依赖"开发机上那份配置文件恰好长这样"。
+          BLOG_CONNECTION: "Host=localhost;Port=5432;Database=blog_stage2;Username=kky;Password=123456;"
         run: >
           dotnet test Blog.Backend/Blog.Tests/Blog.Tests.csproj
           --no-build
@@ -248,54 +214,36 @@ jobs:
       # 测试夹具 BlogApiFactory 每次运行都新建一个随机库
       # （`blog_stage2_test_<guid>`），迁移跑在**那个库**上，结束时整库删掉。
       # 所以 CI 里的 blog_stage2 始终停留在「镜像 entrypoint 脚本刚建好」的状态：
-      #   - 有 chinese 配置，但只有 n,v,a,i,e,l
-      #   - __EFMigrationsHistory 根本不存在（迁移从没跑过）
+      #   - 有 chinese 配置，但只有 n,v,a,i,e,l, 缺 j,q, 因为测试阶段不会迁移，迁移还没跑
       #
       # 于是想校验「迁移把映射补全了」，就必须**真的把迁移跑在这个库上**。
-      # 这同时也补上了一个覆盖缺口：验证迁移链能在
-      # 「库已存在 + 半配置」的库上从零建表建配置 —— 那正是线上首次启动的形态。
+      # 这同时也补上了一个覆盖缺口：验证迁移链能在「库已存在 + 半配置」的库上从零建表建配置 —— 那正是线上首次启动的形态。
       #
       # 走 BLOG_CONNECTION 是因为 BlogDbContextFactory（设计期工厂）读这个环境变量，
       # 这样不必依赖 Program.cs 的启动配置（那条路要 Jwt:SigningKey 等一堆生产校验）。
-      #
-      # ⚠️ 两个容易踩的点：
-      #   ① `dotnet-ef` 是本仓库 pin 的**本地工具**（Blog.Backend/dotnet-tools.json），
-      #      而本地工具只从**当前目录向上**找 manifest。所以必须 cd 进 Blog.Backend，
-      #      否则报 "Could not execute because the specified command or file was not found"。
-      #   ② 本地工具必须先 `dotnet tool restore`（上面那步 restore 只管 NuGet 包）。
       - name: 在半配置的 blog_stage2 上跑完整迁移链
         env:
           BLOG_CONNECTION: "Host=localhost;Port=5432;Database=blog_stage2;Username=kky;Password=123456;"
         working-directory: Blog.Backend
         run: |
+          # 还原dotnet tool工具（这里是dotnet ef）
           dotnet tool restore
           dotnet ef database update \
             --project Blog.Infrastructure \
             --startup-project Blog.WebApi
 
-          # ⚠️ 断言**真的迁移了**。少了这一步，将来某次改动让迁移静默跳过时，
-          #    这一步会"成功"，而下面的映射断言给出的失败信息会指向错误的方向
-          #    （看起来像"迁移没补映射"，实际是"迁移压根没跑"）。
+          # 断言**真的迁移了**。
           count=$(docker exec pgsql psql -U kky -d blog_stage2 -tAc \
             "SELECT count(*) FROM \"__EFMigrationsHistory\";" | tr -d '[:space:]')
           echo "已应用迁移：${count} 条"
           [ "$count" -ge 5 ] || { echo "::error::迁移没有全部应用（实际 ${count} 条）"; exit 1; }
 
-      # 回归防护：`chinese` 检索配置的 token 映射必须**完整**。
-      #
-      # 为什么单独守这一条：映射缺项是**完全静默**的故障 ——
-      #   没有映射的 token 类型会被 to_tsvector 直接丢弃、不进索引，
-      #   SQL 不报错、健康检查也发现不了（它只查配置存不存在）。
-      #   而提供配置的来源有两个（镜像的 entrypoint 脚本、EF 迁移），
-      #   两条路径都可能"建出配置但少几项"。
+      # 测试 `chinese` 检索配置的 token 映射必须**完整**。
       #
       # 实测：社区镜像自带脚本建出的配置只有 n,v,a,i,e,l；
       #   缺 j(简称) q(量词) 时，`一篇文章` 的 `篇` 根本不在索引里。
       #   迁移 20260918174440_EnsureChineseConfigTokenMappings 负责补齐。
       #
-      # ⚠️ 依赖上一步「跑完整迁移链」——它负责把映射补全。
-      #    （曾误以为"集成测试会迁移 blog_stage2"，于是这一步单独跑必然失败：
-      #      实际拿到的是镜像脚本的 a,e,i,l,n,v。）
       - name: 校验 chinese 检索配置的映射完整（防静默缺项）
         run: |
           actual=$(docker exec pgsql psql -U kky -d blog_stage2 -tAc \
@@ -314,10 +262,7 @@ jobs:
             "SELECT to_tsvector('chinese','一篇文章五个参数');" | grep -q "'篇'"
           echo "OK：映射完整，且量词已进入索引"
 
-      # ⚠️ 这一步直接对应 learn/02 §8 的那句判据：
-      #      「一条从来没红过的流水线，你并不知道它是否真的在检查。」
-      #
-      #    `dotnet test` 在**一个测试都没发现**时同样返回退出码 0。
+      #    `dotnet test` 在一个测试都没发现或者一些配置错误时，也会返回退出码 0 正常退出。
       #    也就是说：路径写错、过滤器写错、测试工程没被编译进产物……
       #    这些情况都会让流水线**变绿**，而实际上什么都没验证。
       #
@@ -367,13 +312,6 @@ jobs:
               sys.exit(1)
           PY
 
-      # 覆盖率不阻断，但**必须看得见**（learn/02 §5.2：
-      # 「把覆盖率报告作为 CI 制品上传 —— 看得见才会被关注」）。
-      # 制品要下载才看得到，写进作业摘要则是打开 PR 就在眼前。
-      #
-      # ⚠️ 这一步同时兼作**防静默失效**：上一步改用 --settings 之后，
-      #    runsettings 被删 / 参数被改都会让覆盖率**无声消失**，
-      #    而流水线依然全绿。找不到报告时这里必须报错。
       - name: 覆盖率写进作业摘要（并确认报告真的产出了）
         run: |
           python3 - <<'PY'
@@ -403,7 +341,7 @@ jobs:
                       f'| 行覆盖 | {line_rate:.1f}% ({covered}/{valid}) |\n'
                       f'| 分支覆盖 | {branch_rate:.1f}% |\n\n'
                       '> 已排除 EF 迁移与源生成代码（`coverage.runsettings`）。\n'
-                      '> **不对总量设阈值**——阈值只会逼人写不 assert 的测试来凑数（learn/02 §5.2）。\n'
+                      '> **不对总量设阈值**——阈值只会逼人写不 assert 的测试来凑数（learn/02 §4.2）。\n'
                   )
           PY
 
@@ -414,7 +352,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: backend-test-results
-          path: '**/TestResults/**'
+          path: "**/TestResults/**"
           if-no-files-found: warn
 
       # 集成测试失败时，最需要的信息在**数据库容器**里，而不在测试输出里
@@ -423,27 +361,14 @@ jobs:
         run: docker logs pgsql
 
   # ══════════════════════════════════════════════════════════════════════
-  # 作业四：依赖安全扫描（对应 docs/06-技术债与待办.md §2 的 G5）
+  # 作业四：依赖安全扫描
   #
-  # 为什么单独开一个作业，而不是塞进上面两个里：
-  #   ① 它回答的是**另一个问题**。上面两个问"我写的代码对不对"，
-  #      这个问"我依赖的代码还安全吗" —— 后者会在一行代码都没改的情况下变坏；
-  #   ② 独立作业 = 独立的检查名，将来想把它设成 Required 时，
-  #      不需要改动其它两个作业的配置。
-  #
-  # 为什么现在**只报告不阻断**（continue-on-error）：
-  #   刚引入扫描时先只看结果。等它的结果稳定、你也确认过
-  #   "它报出来的东西我确实每次都会修"，再改成阻断。
-  #   反过来做（先阻断）最常见的结局是：某天被一个修不了的 CVE 卡住，
-  #   于是把整个作业注释掉 —— 从此它就是个摆设。
+  # 只报告不阻断（continue-on-error）
   #
   # ⚠️ 一个容易被忽略的事实（实测于 2026-09-13）：
   #   **这个项目其实早就在扫依赖漏洞了。** NuGet Audit 从 .NET 8 SDK 起默认开启，
   #   `dotnet restore` / `dotnet build` 会打出 NU1903 警告。CI 每次都在打这个警告 ——
   #   只是它是**警告**：不会让流水线变红，也不会有任何人看见。
-  #   所以 G5 的准确描述不是"完全没做"，而是"信息一直在输出，却没有任何机制让它被看见"。
-  #   将来要把它升级成阻断，最省事的路径是给构建加
-  #   `-warnaserror:NU1901;NU1902;NU1903;NU1904`（而不是再加一个作业）。
   # ══════════════════════════════════════════════════════════════════════
   security:
     name: 依赖安全扫描
@@ -454,24 +379,20 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       # dotnet list package 需要先有还原结果（obj/project.assets.json），
       # 否则它拿不到依赖树。所以这里不能省掉 restore。
       - name: 还原依赖
         run: dotnet restore Blog.Backend/Blog.Backend.slnx
 
-      # --include-transitive 才是重点：漏洞通常藏在**传递依赖**里，
-      # 只扫直接依赖会漏掉大部分情况（learn/02 §5.4）。
+      # --include-transitive 才是重点：漏洞通常藏在**传递依赖**里，只扫直接依赖会漏掉大部分情况
       #
       # 输出同时写进文件，后面那一步要把它搬进作业摘要 ——
       # 一个"只在日志深处"的检查等于没有。
       - name: NuGet 漏洞扫描（含传递依赖）
         continue-on-error: true
         run: |
-          # ⚠️ 这个命令在**发现漏洞时退出码依然是 0**（实测阳性对照：
-          #    故意引用 Newtonsoft.Json 12.0.1，报出 High 漏洞，退出码 0）。
-          #    所以退出码只能用来判断"命令有没有跑起来"，**不能**用来判断"有没有漏洞"。
           set -o pipefail
           if ! dotnet list Blog.Backend/Blog.Backend.slnx package \
                  --vulnerable --include-transitive 2>&1 | tee "$RUNNER_TEMP/nuget-vuln.txt"; then
@@ -491,17 +412,6 @@ jobs:
       - name: npm 漏洞扫描
         continue-on-error: true
         run: |
-          # ⚠️⚠️ 必须显式写 --registry。原因是一个真实的坑（archive/问题排查记录.md §8）：
-          #
-          #   本机的默认源是 registry.npmmirror.com（淘宝镜像），
-          #   而它**没有实现 audit 接口**，请求会直接返回
-          #      404 [NOT_IMPLEMENTED] /-/npm/v1/security/* not implemented yet
-          #
-          #   而且 npm 这时是**非 0 退出**的。由于本作业是 continue-on-error，
-          #   这一步会「绿着失败」—— 在页面上和「扫了，没发现漏洞」长得一模一样。
-          #
-          #   同理，**换掉本机默认源不能算解决** —— CI 是干净的机器，
-          #   正确做法是每次显式指定，让"用哪个源审计"这件事写在流水线里。
           cd Blog.FrontEnd
           npm audit --registry=https://registry.npmjs.org 2>&1 | tee "$RUNNER_TEMP/npm-audit.txt" || true
 
@@ -535,46 +445,31 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ══════════════════════════════════════════════════════════════════════
-  # 作业五：把应用镜像推到 GHCR —— **只有合并进 main 之后才跑**
+  # 作业五：把应用镜像推到 GHCR —— **合并进 main、或推 v* tag 时才跑**
   #
-  # 这个作业解决的是部署链路上的两个真问题：
+  # Docker 按**层**拉取，改后端时通常只有应用那一层变（几 MB），而不是整个镜像。
+  # 本地打包那条路仍然保留（`tools/deploy/deploy.sh build`）—— **首次部署仍然用它**
+  # （PG 镜像约 157 MB，没必要每次让 CI 重建重推）。
   #
-  #   ① **服务器不用再收 128 MB 的 tar.gz。** Docker 按**层**拉取，
-  #      改后端时通常只有应用那一层变（几 MB），而不是整个镜像。
-  #      本地打包那条路仍然保留（`tools/deploy/deploy.sh build`）—— **首次部署仍然用它**
-  #      （PG 镜像约 157 MB，没必要每次让 CI 重建重推）。
-  #
-  #   ② ⭐ **补上「CI 绿」和「线上跑的那版」之间的完整性缺口。**
-  #      在此之前，你部署的镜像是**本地**在 CI 绿了之后构建的 ——
-  #      如果当时工作区是脏的，你会带着绿色徽章上线没测过的代码。
-  #      现在服务器拉的就是 CI 从那个提交构建的镜像，tag 就是 commit sha，
-  #      「线上跑的是哪个提交」不再需要考古。
-  #      （这正是 docs/06 的 G4「没有发布流程与版本号」。）
-  #
-  # ⚠️ 两个必须知道的点：
-  #   - **package 默认是私有的。** 要让服务器免登录拉取，第一次推完之后去
-  #     GitHub → Packages → 该 package → Settings → 把 visibility 改成 public。
-  #     仓库本身是 public，镜像里只有编译产物、**不含任何密钥**
-  #     （密钥全部由 .env 在运行时注入）。
-  #   - **这个作业只能靠真跑验证**：本地没法测 GHCR 推送。
-  #     第一次请在 Actions 页面手动 "Run workflow" 跑一次看结果。
+  # ⚠️ 它 `needs` 三个检查作业：镜像一推上去就是"可部署的制品"，
+  #    测试红着推出去的镜像没有任何价值，只会在 GHCR 里留下一个永远不该部署的 sha。
   # ══════════════════════════════════════════════════════════════════════
   publish:
     name: 发布镜像到 GHCR
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # 不含 security —— 它按设计只报告不阻断
+    needs: [hygiene, frontend, backend]
     # PR 里不推：会把 registry 塞满永远不会合并的版本。
-    # 允许 workflow_dispatch 是为了能手动验证这个作业本身。
     # 版本 tag 推送同样要进这里 —— 那正是「发布」动作。
+    # ⚠️ 手动触发**不在**这里：它的 ref 可以是任意分支，推出去就等于一个来路不明的制品。
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     permissions:
       contents: read
       packages: write
     steps:
-      # ⚠️ fetch-depth: 0 —— 下面要拿 `github.event.before` / `HEAD^` 做 diff，
-      #    而 checkout 默认只拉 1 个提交（浅克隆），浅克隆里那两个 ref 都不存在。
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -582,10 +477,9 @@ jobs:
       # ────────────────────────────────────────────────────────────────
       # 版本号解析：把「这次构建是什么版本」算成环境变量，供后面注入镜像。
       #
-      # 三种情况：
-      #   tag 推送        -> VERSION = tag 名（如 v2026.09.17），并更新 :latest
+      # 两种情况：
+      #   tag 推送        -> VERSION = tag 名（语义化版本 + v 前缀，如 v0.1.0），并更新 :latest
       #   main 分支推送   -> VERSION = v0.0.0-main.<短sha>，**不动** :latest
-      #   手动触发        -> 同 main 分支推送
       #
       # 为什么 main 分支不更新 :latest：
       #   `latest` 只有在「打 tag 发布」时才移动，它才等于「最新正式版」这个可靠含义。
@@ -617,16 +511,10 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          # GITHUB_TOKEN 就够 —— 推同仓库的 package 只需要 packages: write，
-          # 不需要额外配 PAT（少一个会过期的凭据要维护）。
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # 镜像 tag 由 metadata-action 统一生成，而不是手写 `tags:` 多行字符串。
-      #
-      # 为什么不用手写：多行 tags 里**不能有空行**，而「刚好在发布时才加 :latest」
-      # 需要条件判断。用 `a && b || c` 拼出来的假 tag 会被当成一个**真的** tag 推上去，
-      # 只能靠塞一个不存在的名字来"抵消"，非常脆。metadata-action 的
-      # `type=raw,value=latest,enable=...` 天生就是干这个的。
+
       - name: 生成镜像 tag
         id: meta
         uses: docker/metadata-action@v6
@@ -636,15 +524,7 @@ jobs:
           # 日常 main 分支构建**不动** :latest，它才等于「最新正式版」这个可靠含义。
           flavor: latest=auto
           tags: |
-            # ⚠️ 不可变身份用**裸** `github.sha`，不要用 `type=sha`。
-            #
-            # 为什么：`type=sha` 产出的是 **`sha-<完整sha>`**（前缀是为了避免与版本号混淆）。
-            # 而部署契约（docs/05 §8.7.1、tools/deploy/deploy.sh 的 update）写的是
-            # 「tag 就是那次合并的提交 sha」—— 服务器上就是拿 `:<sha>` 去 pull 的。
-            # 换成带前缀的形式后，线上实测直接 404：
-            #   failed to resolve reference "...-webapi:922527d...": not found
-            # 而镜像其实推上去了（`sha-922527d...` 在）。
-            # 这里用 type=raw 明确产出裸 sha，保住那条契约。
+            # 裸 sha：服务器上就是拿 `:<sha>` 去 pull 的。
             type=raw,value=${{ github.sha }}
             # 人读的版本号：tag 推送时用 tag 名，否则用 v0.0.0-main.<短sha>
             type=raw,value=${{ steps.version.outputs.version }}
@@ -682,6 +562,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}-nginx
           flavor: latest=auto
           tags: |
+            # 裸 sha：服务器上就是拿 `:<sha>` 去 pull 的。
             # 与 webapi 完全同一套规则（裸 sha，不是 type=sha 的 sha- 前缀形式）——
             # 两个镜像的 tag 必须一致，否则 deploy.sh update 一次要拉两个，
             # 其中一个形式不对就整个失败（线上实测踩过）
@@ -725,14 +606,98 @@ jobs:
             fi
             echo
             echo '### 服务器更新'
-            echo '```bash'
-            echo "bash tools/deploy/deploy.sh update ${{ github.sha }}"
-            echo '```'
+            echo '✅ 这是 main / v* tag 的推送：`deploy` 作业会自动执行服务器上的'
+            echo "\`bash tools/deploy/deploy.sh update ${{ github.sha }}\`（目录 /opt/blog），"
+            echo '并在部署后**从公网**确认线上真的报出这个 sha。'
             echo '> 用 **sha**（不可变），不要用 `:latest`。'
-            echo '> 部署完可以确认线上版本：`curl -s https://<站点>/api/version`。'
+            echo '> 手工核对：`curl -s https://<站点>/api/version`。'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # ⚠️ 光推镜像**不够**：GHCR 里只有 webapi / nginx 两个镜像。
-      #    docker-compose.yml、PG 镜像、tools/ 下的脚本都不在里面 ——
-      #    改了那些却只跑 update，会出现「镜像换了、配置没换」，而且**不报错**。
-      #    逐条对照表见 tools/deploy/README.md §6「改了东西之后要做什么」。
+  # ══════════════════════════════════════════════════════════════════════
+  # 作业六：SSH 到服务器执行部署 —— **合并进 main 或推 v* tag 时都跑**
+  #
+  # 也就是说「CI 绿 → 线上就是它」这条链路是自动的：没有人工点部署这一步。
+  # 代价要清楚：任何一个**测试全绿但行为不对**的改动，合并进 main 就会立刻上线。
+  #
+  # 首次部署不在这里（服务器上还没有 compose / .env），见 tools/deploy/README.md §2。
+  # ══════════════════════════════════════════════════════════════════════
+  deploy:
+    name: 自动部署到服务器
+    runs-on: ubuntu-latest
+
+    # ⚠️ 这条依赖是**安全前提**，不是保险：`publish` 自己 needs 三个检查作业，
+    #    所以「检查全绿 → 推镜像 → 部署」是一条链。
+    #    谁把 publish 的 needs 拿掉，这里就跟着一起失守 —— 改那边时必须回来看这一行。
+    #    （不含 security —— 它按设计只报告不阻断。）
+    needs: [publish]
+
+    # ⚠️ 这里**刻意没有** workflow_dispatch：手动触发的 ref 可以是任意分支，
+    #    于是"手动跑一次 CI"= "把功能分支发到生产"。
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+
+    # 一次只跑一个部署：两次并发的 update 会互相抢，先启动的那次若最后完成，
+    # 线上就被退回旧 sha（且它同样是"成功"的，不会有人注意到）。
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    timeout-minutes: 15
+
+    steps:
+      # 需要仓库里的文件：下一步要把 compose 与部署脚本同步到服务器
+      - uses: actions/checkout@v7
+
+      # ⚠️ GHCR 里只有 webapi / nginx 两个镜像，compose 文件与 deploy.sh 都不在里面。
+      #    以前它们靠人 scp，于是"改了脚本但服务器那份没换"是一种**不报错**的故障
+      #    （镜像换了、行为没换）。改成每次部署前同步一次 —— 部署用的永远是这次提交里的那份。
+      #
+      # ⚠️ 绝不设置 `rm`：那会把服务器上的 .env 一起删掉（它不在仓库里，删了只能重新生成密钥）。
+      #    `source` 保持相对路径，scp-action 会按原目录结构落到 /opt/blog/tools/deploy/deploy.sh。
+      - name: 同步 compose 与部署脚本到服务器
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          # 可选加固：填了这个 secret 就校验服务器主机密钥（防中间人）；
+          # 不填则退回"不校验"。取值方法见 docs/05 §8.7.2
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          source: "docker-compose.yml,docker-compose.prod.yml,tools/deploy/deploy.sh"
+          target: /opt/blog/
+          overwrite: true
+
+      - name: SSH 到服务器并执行部署脚本
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          script: |
+            cd /opt/blog
+            bash tools/deploy/deploy.sh update ${{ github.sha }}
+
+      # ⚠️ 「SSH 命令退出码 0」不等于「公网真的在跑这一版」：
+      #    Caddy / nginx / 应用缓存任何一层没换，上一步都看不出来。
+      #    这是失效哨兵 —— 必须**看到线上报出这次的 sha**才算部署成功（learn/02 §4）。
+      - name: 校验线上真的在跑这次提交（防假绿）
+        env:
+          # 站点地址可以用仓库变量 SITE_URL 覆盖；没设就用线上域名
+          SITE_URL: ${{ vars.SITE_URL || 'https://www.kkynet.site' }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          short="${EXPECTED_SHA:0:7}"
+          for i in $(seq 1 10); do
+            body="$(curl -fsS --max-time 10 "$SITE_URL/api/version" 2>/dev/null || true)"
+            echo "第 $i 次：${body:-（取不到）}"
+            if printf '%s' "$body" | grep -q "$short"; then
+              echo "OK：线上已切换到 $short"
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::部署后 60 秒内 $SITE_URL/api/version 仍未报出 $short —— 不要当成部署成功"
+          echo "::error::排查顺序：curl $SITE_URL/health → 服务器上 bash tools/deploy/deploy.sh status"
+          exit 1

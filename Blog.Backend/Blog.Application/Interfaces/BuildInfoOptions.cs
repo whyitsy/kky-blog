@@ -17,7 +17,7 @@ namespace Blog.Application.Interfaces
         public const string BuiltAtVar = "BUILD_TIME";
 
         /// <summary>
-        /// 版本号，来自 git tag（如 <c>v2026.09.17</c>）。
+        /// 版本号，来自 git tag（语义化版本并带 <c>v</c> 前缀，如 <c>v0.1.0</c>）。
         /// 未注入时留空 —— 由 BuildInfoProvider 决定兜底显示成什么。
         /// </summary>
         public string Version { get; set; } = string.Empty;

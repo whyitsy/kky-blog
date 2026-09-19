@@ -4,7 +4,7 @@
 > 从架构设计、编码、自动化测试，到 CI/CD、容器化部署与 HTTPS 上线，独立完成全流程。
 
 **🌐 线上站点**：<https://www.kkynet.site>
-**✅ CI 状态**：见 [GitHub Actions](https://github.com/whyitsy/kky-blog/actions) —— 格式卫生 / 前端类型检查与构建 / 后端编译测试覆盖率 / 依赖漏洞扫描，四个作业
+**✅ CI 状态**：见 [GitHub Actions](https://github.com/whyitsy/kky-blog/actions) —— 四个并行检查作业（格式卫生 / 前端类型检查与构建 / 后端编译测试覆盖率 / 依赖漏洞扫描），通过后串起发布镜像 → 自动部署；**合并进 `main` 即上线**，部署后会从公网核对线上版本与本次提交一致
 
 ---
 
