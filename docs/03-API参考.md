@@ -747,7 +747,7 @@ Collections 27–33、Site 34–39、Users 40–45、Files 46–47、Version 48�
 
 ```json
 { "code": 0, "message": "ok",
-  "data": { "version": "v2026.09.17", "commit": "0be5460…", "builtAt": "2026-09-17T10:00:00Z" } }
+  "data": { "version": "v0.1.0", "commit": "0be5460…", "builtAt": "2026-09-19T10:00:00Z" } }
 ```
 
 | 字段 | 来源 | 取不到时 |

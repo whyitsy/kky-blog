@@ -54,7 +54,7 @@ public sealed class VersionEndpointTests
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
-                    ["VERSION"] = "v2026.09.17",
+                    ["VERSION"] = "v0.1.0",
                     ["GIT_SHA"] = "0be5460abcdef1234567890abcdef1234567890",
                     ["BUILD_TIME"] = "2026-09-17T10:00:00Z",
                 }));
@@ -68,7 +68,7 @@ public sealed class VersionEndpointTests
             $"应返回 200/0，实际 {status}/{code} {message}");
 
         Assert.NotNull(data);
-        Assert.Equal("v2026.09.17", data!.Version);
+        Assert.Equal("v0.1.0", data!.Version);
         Assert.Equal("0be5460abcdef1234567890abcdef1234567890", data.Commit);
         Assert.Equal("2026-09-17T10:00:00Z", data.BuiltAt);
     }

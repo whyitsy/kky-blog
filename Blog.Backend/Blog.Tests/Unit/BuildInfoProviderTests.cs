@@ -19,14 +19,14 @@ public sealed class BuildInfoProviderTests
     {
         var provider = new BuildInfoProvider(new BuildInfoOptions
         {
-            Version = "v2026.09.17",
+            Version = "v0.1.0",
             Commit = "0be5460abcdef1234567890abcdef1234567890",
             BuiltAt = "2026-09-17T10:00:00Z",
         });
 
         var info = provider.Get();
 
-        Assert.Equal("v2026.09.17", info.Version);
+        Assert.Equal("v0.1.0", info.Version);
         Assert.Equal("0be5460abcdef1234567890abcdef1234567890", info.Commit);
         Assert.Equal("2026-09-17T10:00:00Z", info.BuiltAt);
     }
@@ -47,11 +47,11 @@ public sealed class BuildInfoProviderTests
     [Fact]
     public void 只注入版本时_其余字段仍有兜底()
     {
-        var provider = new BuildInfoProvider(new BuildInfoOptions { Version = "v2026.09.17" });
+        var provider = new BuildInfoProvider(new BuildInfoOptions { Version = "v0.1.0" });
 
         var info = provider.Get();
 
-        Assert.Equal("v2026.09.17", info.Version);
+        Assert.Equal("v0.1.0", info.Version);
         Assert.Equal(string.Empty, info.Commit); // 明确为空，而不是 null
         Assert.False(string.IsNullOrWhiteSpace(info.BuiltAt));
     }
@@ -80,13 +80,13 @@ public sealed class BuildInfoProviderTests
     {
         var provider = new BuildInfoProvider(new BuildInfoOptions
         {
-            Version = " v2026.09.17 ",
+            Version = " v0.1.0 ",
             Commit = " abc123 ",
         });
 
         var info = provider.Get();
 
-        Assert.Equal("v2026.09.17", info.Version);
+        Assert.Equal("v0.1.0", info.Version);
         Assert.Equal("abc123", info.Commit);
     }
 

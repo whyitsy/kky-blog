@@ -478,7 +478,7 @@ jobs:
       # 版本号解析：把「这次构建是什么版本」算成环境变量，供后面注入镜像。
       #
       # 两种情况：
-      #   tag 推送        -> VERSION = tag 名（如 v2026.09.17），并更新 :latest
+      #   tag 推送        -> VERSION = tag 名（语义化版本 + v 前缀，如 v0.1.0），并更新 :latest
       #   main 分支推送   -> VERSION = v0.0.0-main.<短sha>，**不动** :latest
       #
       # 为什么 main 分支不更新 :latest：
