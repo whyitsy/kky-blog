@@ -54,7 +54,7 @@ Blog.Backend/
 └─ Blog.Tests/           xUnit 单元测试 + 集成测试
 Blog.FrontEnd/           Vue 3 SPA
 deploy/                  Dockerfile · nginx.conf · 服务器初始化脚本
-tools/                   e2e 检查 · k6 压测物料 · 备份还原
+tools/                   k6 压测物料 · 部署脚本
 docs/ learn/ archive/    参考手册 / 教材 / 过程留档
 ```
 

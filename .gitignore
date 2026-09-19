@@ -4,8 +4,7 @@ obj/
 *.user
 *.suo
 .vs/
-# 构建产物，同时也是 tools/e2e 的截图输出目录（tools/e2e/artifacts/）
-# —— 它和 bin/obj 是同一类东西：跑出来的，不该入库
+# 运行产物目录：它和 bin/obj 是同一类东西——跑出来的，不该入库
 artifacts/
 TestResults/
 
@@ -48,12 +47,10 @@ TODO.md
 我的问题.md
 优化的问题.txt
 简历
-backups/
 
 # SDD（subagent-driven-development）的临时工作区：ledger、brief、report
 # 它是流程脚手架，不是项目资产
 .superpowers/
 
-# 镜像包与备份产物：跑出来的，不该入库
+# 镜像包：跑出来的，不该入库
 dist-images/
-backups/
