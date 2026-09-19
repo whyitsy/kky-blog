@@ -31,7 +31,7 @@ public sealed class BlogApiFactory : WebApplicationFactory<Program>
 
     public BlogApiFactory()
     {
-        _sourceConnectionString = ResolveDevelopmentConnectionString();
+        _sourceConnectionString = ResolveConnectionString();
 
         var builder = new NpgsqlConnectionStringBuilder(_sourceConnectionString);
         var baseDb = builder.Database ?? "blog_stage2";
@@ -187,17 +187,37 @@ public sealed class BlogApiFactory : WebApplicationFactory<Program>
     }
 
     /// <summary>
-    /// 从 WebApi 的 appsettings.Development.json 读取连接串，
-    /// 避免把主机/密码硬编码在测试里（配置改了测试也跟着走）。
+    /// 「这次运行连哪个 PostgreSQL」的环境变量名。
+    ///
+    /// 与设计期工厂 <see cref="BlogDbContextFactory"/> **同名同义** ——
+    /// 一个变量同时决定「`dotnet ef` 迁移连哪个库」和「集成测试连哪个库」，
+    /// CI 只需要设一次，也不会出现两处凭证悄悄漂移。
     /// </summary>
-    private static string ResolveDevelopmentConnectionString()
+    private const string ConnectionStringEnvVar = "BLOG_CONNECTION";
+
+    /// <summary>
+    /// 解析测试要连的 PostgreSQL。
+    ///
+    /// 优先级：
+    ///   ① 环境变量 <c>BLOG_CONNECTION</c> —— CI / 任意一台机器都能用**任意凭证**跑测试，
+    ///      不必先让 appsettings.Development.json 长成那台机器需要的样子；
+    ///   ② 回退到 Blog.WebApi/appsettings.Development.json 的连接串（开发机默认值，检出即有）。
+    ///
+    /// 两者都只提供「主机 / 端口 / 用户名 / 密码」，**库名**由本类换成随机测试库（见构造函数）。
+    /// </summary>
+    private static string ResolveConnectionString()
     {
+        var fromEnvironment = Environment.GetEnvironmentVariable(ConnectionStringEnvVar);
+        if (!string.IsNullOrWhiteSpace(fromEnvironment))
+            return fromEnvironment;
+
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Blog.Backend.slnx")))
             dir = dir.Parent;
 
         if (dir is null)
-            throw new InvalidOperationException("未能定位仓库根目录（找不到 Blog.Backend.slnx）");
+            throw new InvalidOperationException(
+                $"既没有设置环境变量 {ConnectionStringEnvVar}，也未能定位仓库根目录（找不到 Blog.Backend.slnx）");
 
         var settingsPath = Path.Combine(dir.FullName, "Blog.WebApi", "appsettings.Development.json");
         var config = new ConfigurationBuilder().AddJsonFile(settingsPath).Build();

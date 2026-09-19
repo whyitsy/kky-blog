@@ -124,7 +124,11 @@ cmd_build() {
   ok "$(du -h "$tar" | cut -f1)"
 
   printf '\n首次部署：把下面这些传到服务器，再跑 deploy.sh init\n'
-  printf '  scp %s docker-compose.yml docker-compose.prod.yml tools/deploy/deploy.sh <用户>@<服务器>:/opt/blog/\n' "$tar"
+  printf '  scp %s docker-compose.yml docker-compose.prod.yml <用户>@<服务器>:/opt/blog/\n' "$tar"
+  printf '  ssh <用户>@<服务器> "mkdir -p /opt/blog/tools/deploy"\n'
+  printf '  scp tools/deploy/deploy.sh <用户>@<服务器>:/opt/blog/tools/deploy/\n'
+  printf '  ⚠️ 脚本必须落在 /opt/blog/tools/deploy/ 下：CI 的自动部署（main / v* tag）\n'
+  printf '     就是执行那里的这一份，路径写错会让自动部署找不到脚本。\n'
 }
 
 # ── init：服务器首装 ────────────────────────────────────────────────────────
