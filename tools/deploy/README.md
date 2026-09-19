@@ -21,20 +21,22 @@
 ① 开发
    改代码 ──push──► PR ──► CI 四作业并行（卫生 / 前端 / 后端+测试 / 依赖扫描）
                                 │
-                    合并进 main（或推 v* tag）
+                     合并进 main（只到 ② 为止，★ 不部署）
                                 ▼
 ② CI 发布镜像（publish 作业：三个检查作业全绿之后才跑）
    构建 webapi + nginx ──► 推 GHCR
    tag = <commit-sha>（不可变），另加人读的 v0.0.0-main.<短sha>
-   ★ 打 v* tag 时额外移动 :latest
+   ★ 推 v* 版本 tag 时额外移动 :latest，并继续往下走 ③
+   （main 的运行可被新推送取消，所以它只是"尽力而为"的镜像；要确定的镜像就发版）
                                 │
+                    推 v* 版本 tag ──► ★ 这是唯一的部署入口
                                 ▼
-③ CI 自动部署（deploy 作业：publish 成功之后）
+③ CI 自动部署（deploy 作业：publish 成功之后，且**只有推 v* tag 才会跑**）
    ├─ 把仓库里的 docker-compose*.yml + tools/deploy/deploy.sh 同步到 /opt/blog
    │    （以后不必靠人记住"改了脚本要 scp"）
    ├─ SSH 执行 deploy.sh update <sha> —— 也就是下面 ④ 这一组动作
    └─ 从公网核对 /api/version 报出的就是这次 sha（对不上就红）
-   （PR 与手动触发都不会走到这里；首次部署也不会 —— 见 ⑤）
+   （合并进 main、PR 与手动触发都不会走到这里；首次部署也不会 —— 见 ⑤）
                                 │
                                 ▼
 ④ 服务器更新（几 MB，只拉变化的层）
@@ -96,12 +98,13 @@ GitHub → Packages → 对应 package → Settings → visibility 改成 **publ
 
 ## 3. 日常更新
 
-**这一步现在是自动的**：`deploy` 作业在「合并进 main / 推 `v*` tag」且三个检查作业全绿、镜像推送成功之后替你执行它，
+**这一步现在是自动的**：`deploy` 作业在**推 `v*` 版本 tag**、且三个检查作业全绿、镜像推送成功之后替你执行它，
 并会在跑之前把本仓库的 `docker-compose*.yml` 与 `tools/deploy/deploy.sh` 同步到服务器。
+⚠️ **合并进 `main` 不会部署**（只发布镜像）—— 上线只有"推 tag"这一个入口，见 §1 第 ③ 步。
 手工跑只在这几种情况需要：排查部署问题、CI 挂了但要紧急上线、或先 `--check` 探一下能不能拉到。
 
 ```bash
-# sha 从 CI 的 publish 作业摘要里抄
+# sha 从发布那个 tag 的运行摘要里抄
 bash tools/deploy/deploy.sh update <完整 sha>
 
 # 只拉不切，先确认能拉到（不改 .env、不重建容器）
@@ -161,7 +164,7 @@ GHCR 里只有 **webapi / nginx** 两个镜像。compose 文件、脚本、PG �
 
 | 改了什么 | 要做什么 |
 |---|---|
-| `Blog.Backend/**`、`Blog.FrontEnd/**`、`deploy/{webapi,nginx}.Dockerfile`、`deploy/nginx.conf` | 等 CI 绿 → 自动部署（或手工 `deploy.sh update <sha>`） |
+| `Blog.Backend/**`、`Blog.FrontEnd/**`、`deploy/{webapi,nginx}.Dockerfile`、`deploy/nginx.conf` | 合并后**不会自动上线**（CI 只发布镜像）→ 要上线就推一个 `v*` 版本 tag；或手工 `deploy.sh update <sha>` |
 | `docker-compose.yml`、`docker-compose.prod.yml` | 走 CI：无需动作（会自动同步）；手工部署：`scp` 到 `/opt/blog/` |
 | `docker-compose.yml` 里 `pgsql:` / `redis:` 的 `image:` 行 | 服务器执行 `docker compose pull pgsql redis && docker compose up -d pgsql redis`（数据在命名卷里，不会丢） |
 | `tools/deploy/deploy.sh` | 走 CI：无需动作（会自动同步）；手工部署：`scp` 到 `/opt/blog/tools/deploy/` |
