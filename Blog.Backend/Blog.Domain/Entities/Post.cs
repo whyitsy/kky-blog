@@ -11,7 +11,7 @@ public class Post : BaseEntity
     public string Title { get; private set; } = string.Empty;
     public string Content { get; private set; } = string.Empty;
 
-    /// <summary>摘要。为空时自动取正文前 50 字；作者填写后不再被自动覆盖（见 archive/决策记录.md §2.2 / T4）</summary>
+    /// <summary>摘要。为空时自动取正文前 50 字；作者填写后不再被自动覆盖</summary>
     public string Summary { get; private set; } = string.Empty;
 
     public string CoverImage { get; private set; } = string.Empty;
@@ -59,7 +59,7 @@ public class Post : BaseEntity
 
     /// <summary>
     /// 更新文章。
-    /// 摘要规则（T4：由应用层判定，不新增字段）：<paramref name="summary"/> 为空则重新自动截取，
+    /// 摘要规则（由应用层判定，不新增字段）：<paramref name="summary"/> 为空则重新自动截取，
     /// 非空则使用传入值 —— 因此作者显式填写的摘要不会被后续更新覆盖。
     /// </summary>
     public void Update(string title, string content, string? summary, Guid? categoryId, string coverImage)

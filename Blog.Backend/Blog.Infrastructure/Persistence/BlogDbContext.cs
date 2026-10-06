@@ -19,7 +19,7 @@ namespace Blog.Infrastructure.Persistence
         public DbSet<SocialLink> SocialLinks { get; set; }
         public DbSet<SiteConfig> SiteConfigs { get; set; }
 
-        /// <summary>登录账号（与 Author 分离，见 archive/决策记录.md §2.1 / T1）</summary>
+        /// <summary>登录账号（与 Author 分离）</summary>
         public DbSet<User> Users { get; set; }
 
         /// <summary>专栏</summary>
@@ -100,8 +100,8 @@ namespace Blog.Infrastructure.Persistence
                 // 中文全文检索列（tsvector 生成列）。表达式在迁移中手写 SQL（需要 zhparser 的
                 // chinese 检索配置），这里只声明**影子属性**并告诉 EF「由数据库生成」。
                 //
-                // 为什么用影子属性而不是 Post 上的实体属性：Blog.Domain 必须保持零框架依赖
-                // （见 docs/02-架构与数据模型.md §3.1），而 NpgsqlTsVector 来自 Npgsql，
+                // 为什么用影子属性而不是 Post 上的实体属性：Blog.Domain 必须保持零框架依赖，
+                // 而 NpgsqlTsVector 来自 Npgsql，
                 // 因此该列只在 Infrastructure 层可见，查询时用 EF.Property 访问。
                 entity.Property<NpgsqlTypes.NpgsqlTsVector>("SearchVector")
                       .HasColumnName("SearchVector")
@@ -238,7 +238,7 @@ namespace Blog.Infrastructure.Persistence
                 // 默认头像。注意两点：
                 //   1. 必须走文件接口 /api/files/**（后端不提供 /media/ 静态路由）
                 //   2. 该文件位于 FileStorage:Root（media/）下，而 media/ 是运行期目录、已被 gitignore，
-                //      因此**全新克隆的仓库里不存在这个文件**，需要手工放入（见 docs/01-快速开始.md §4.2）
+                //      因此**全新克隆的仓库里不存在这个文件**，需要手工放入
                 Avatar = "/api/files/avatar-default.webp",
                 Bio = "coding slayer",
                 CreatedAt = now,
@@ -252,7 +252,7 @@ namespace Blog.Infrastructure.Persistence
                 new { Id = SeedSubtitlesId, Key = SiteConfigKeys.HeroSubtitles, Value = "[\"Hello, World!\",\"Welcome to my blog.\",\"Stay hungry, stay foolish.\"]", Description = "首屏打字机文案", CreatedAt = now, IsDeleted = false, DeletedAt = (DateTimeOffset?)null, Version = 1 },
                 new { Id = SeedFoundingId, Key = SiteConfigKeys.FoundingDate, Value = "2026-01-01", Description = "建站日期", CreatedAt = now, IsDeleted = false, DeletedAt = (DateTimeOffset?)null, Version = 1 });
 
-            // 初始管理员账号。作者账号**不预置** —— 按 T1 由管理员登录后在后台创建。
+            // 初始管理员账号。作者账号**不预置** —— 由管理员登录后在后台创建。
             modelBuilder.Entity<User>().HasData(new
             {
                 Id = SeedAdminUserId,

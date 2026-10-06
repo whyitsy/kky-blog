@@ -79,7 +79,7 @@ namespace Blog.WebApi.Controllers
         /// 读取文件（如 /api/files/2026/09/xxx.png），命中时下发长缓存。
         ///
         /// <para><b>为什么这里也抛异常，而不是 return NotFound(...)</b></para>
-        /// 这正是「能在业务代码里执行 → 一律 throw」这条规范的边界用例（docs/02 §4.2）：
+        /// 这正是「能在业务代码里执行 → 一律 throw」这条规范的边界用例：
         /// 本方法返回 <c>IActionResult</c>，看起来"只能 return"。但失败路径**是业务代码**——
         /// 它就在 Action 里面，有完整的调用栈可抛。
         ///

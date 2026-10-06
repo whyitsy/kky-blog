@@ -1,5 +1,5 @@
 /**
- * 骨架屏组件统一出口（E11）。
+ * 骨架屏组件统一出口。
  * 各页面按需引入，例如：
  *   import { PostCardSkeleton } from '@/components/skeleton'
  */

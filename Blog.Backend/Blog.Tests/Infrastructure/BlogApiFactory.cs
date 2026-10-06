@@ -43,7 +43,7 @@ public sealed class BlogApiFactory : WebApplicationFactory<Program>
         _adminConnectionString = builder.ConnectionString;
 
         CreateTestDatabase();
-        // 刻意不做任何「预建 chinese 配置」的准备 —— 见下面那段注释（G12 的回归防护）
+        // 刻意不做任何「预建 chinese 配置」的准备 —— 见下面那段注释
         MigrateTestDatabase();
     }
 
@@ -149,11 +149,11 @@ public sealed class BlogApiFactory : WebApplicationFactory<Program>
     // 创建该配置的 SQL **之前**，于是「干净」的库跑迁移必定失败：
     //     42704: text search configuration "chinese" does not exist
     // 当时的应对是在夹具里先把配置建好绕过去 —— 但那等于**把缺陷掩盖在测试里**：
-    // 「迁移链能不能从零建库」恰恰是 CI 最该验证的事情之一（缺口 G12）。
+    // 「迁移链能不能从零建库」恰恰是 CI 最该验证的事情之一（这曾是一个真实缺口）。
     //
     // 现在迁移自己会建扩展与配置（见 20260910205225_AddAuthCollectionsAndFts
     // 最前面的说明），因此这里不再需要任何前置准备 ——
-    // **集成测试是在一个完全干净的库上跑迁移的，这本身就是 G12 的回归防护**。
+    // **集成测试是在一个完全干净的库上跑迁移的，这本身就是那个缺口的回归防护**。
     // 谁再把这个顺序调回去，这里会立刻红，而不是等到换镜像、上生产时才炸。
     // ────────────────────────────────────────────────────────────────────────
 

@@ -31,7 +31,7 @@ export function getPostDetail(id: string): Promise<PostDetailDto> {
 
 /**
  * 只读详情：**不会**让浏览量 +1，供管理端/编辑器取数据（含 version）用。
- * 需要登录。用于修掉「后台点一次编辑就 +1」造成的浏览量失真（见 archive/决策记录.md §4（Q12））。
+ * 需要登录。用于修掉「后台点一次编辑就 +1」造成的浏览量失真。
  */
 export function getPostDetailReadonly(id: string): Promise<PostDetailDto> {
   return get(`/api/posts/${id}/readonly`)
@@ -52,7 +52,7 @@ export function createPost(payload: PostPayload): Promise<PostDetailDto> {
   return post<PostDetailDto>('/api/posts', {
     title: payload.title,
     content: payload.content,
-    // 摘要留空时后端自动取正文前 50 字（T4：作者填写则以填写为准）
+    // 摘要留空时后端自动取正文前 50 字（作者填写则以填写为准）
     summary: payload.summary || null,
     coverImage: payload.coverImage || '',
     categoryId: payload.categoryId,

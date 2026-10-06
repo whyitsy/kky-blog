@@ -4,7 +4,7 @@ namespace Blog.Application.Services.Collection
     /// 专栏：把多篇文章组织成一个系列。
     ///
     /// 与分类的区别：分类是「广度」上的单值归类（一篇文章一个分类），
-    /// 专栏是「深度」上的系列组织，且**一篇文章可属于多个专栏**（T2 决策，多对多）。
+    /// 专栏是「深度」上的系列组织，且**一篇文章可属于多个专栏**（多对多）。
     /// </summary>
     public interface ICollectionService
     {

@@ -8,7 +8,7 @@
 //
 // 为什么要有这一步：k6 的默认输出是给终端看的，散在六个日志里；
 // 报告要的是**一张能横向比较的表**，而且必须同时带上环境规格 ——
-// 没有环境的性能数字是不可复现的（learn/03 §11.1 纪律 3）。
+// 没有环境的性能数字是不可复现的。
 // ============================================================================
 
 import fs from 'node:fs';
@@ -29,7 +29,7 @@ const COLD = path.resolve(REPO_ROOT, getArg('--cold', 'tools/load/results/raw/co
 const ENV_FILE = getArg('--env', '');
 const OUT = path.resolve(REPO_ROOT, getArg('--out', 'tools/load/results/baseline.md'));
 
-/** 报告里的固定顺序 = docs/06 §3.1 的优先级顺序 */
+/** 报告里的固定顺序 = 优先级顺序 */
 const ORDER = [
   ['smoke', 'B0 冒烟（首页列表）'],
   ['posts-list', 'GET /api/posts 首页列表'],

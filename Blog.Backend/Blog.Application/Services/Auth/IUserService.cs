@@ -2,7 +2,7 @@ namespace Blog.Application.Services.Auth
 {
     /// <summary>
     /// 账号管理。**仅管理员可用**，且作者账号的唯一创建入口就在这里
-    /// （T1：作者不开放自助注册，由管理员在后台创建）。
+    /// （作者不开放自助注册，由管理员在后台创建）。
     /// </summary>
     public interface IUserService
     {

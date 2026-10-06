@@ -17,7 +17,7 @@ namespace Blog.Application.Interfaces
 
         /// <summary>
         /// Access Token 有效期（分钟）。默认 30。
-        /// 本项目**不做 Refresh Token**（T7），因此这个值直接决定用户多久需要重新登录。
+        /// 本项目**不做 Refresh Token**，因此这个值直接决定用户多久需要重新登录。
         /// </summary>
         public int AccessTokenMinutes { get; set; } = 30;
     }
@@ -27,7 +27,7 @@ namespace Blog.Application.Interfaces
     {
         public const string SectionName = "Deployment";
 
-        /// <summary>实例数量。> 1 时强制要求 Redis（见 docs/02-架构与数据模型.md §16 / T5）</summary>
+        /// <summary>实例数量。> 1 时强制要求 Redis</summary>
         public int InstanceCount { get; set; } = 1;
 
         /// <summary>是否强制要求 Redis（即使 InstanceCount 为 1 也可显式要求）</summary>

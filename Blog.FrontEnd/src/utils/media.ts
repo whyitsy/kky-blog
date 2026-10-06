@@ -7,7 +7,7 @@
  *
  * ⚠️ **刻意不含 `image/svg+xml`**：SVG 可以内嵌 `<script>`，而本站的文件读取接口是
  * **同源**下发的 —— 直接打开 `/api/files/xxx.svg` 会让脚本在站点源上执行，
- * 构成存储型 XSS（曾登记为缺口 G11，2026-09-13 通过「不支持上传 SVG」关闭）。
+ * 构成存储型 XSS（2026-09-13 通过「不支持上传 SVG」关闭）。
  * 详见 `Blog.Infrastructure/Files/LocalFileStorageService.cs` 里 `AllowedExtensions`
  * 的注释。
  *

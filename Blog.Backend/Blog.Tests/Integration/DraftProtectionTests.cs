@@ -4,7 +4,7 @@ using Blog.Tests.Infrastructure;
 namespace Blog.Tests.Integration;
 
 /// <summary>
-/// 草稿权限保护集成测试（Q7）。
+/// 草稿权限保护集成测试。
 ///
 /// 规则回顾：
 ///   - <c>includeUnpublished=true</c> 必须已登录；非 Admin 只能看到**自己创建的**草稿

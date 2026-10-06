@@ -11,7 +11,7 @@ namespace Blog.Infrastructure.Persistence.Repositories
     /// </summary>
     public class PostQueryRepository : IPostQueryRepository
     {
-        /// <summary>中文全文检索配置名（由迁移创建，见 docs/02-架构与数据模型.md §9.4 / T12）</summary>
+        /// <summary>中文全文检索配置名（由迁移创建）</summary>
         private const string ChineseTextSearchConfig = "chinese";
 
         private readonly BlogDbContext _context;
@@ -50,7 +50,7 @@ namespace Blog.Infrastructure.Persistence.Repositories
         }
 
         /// <summary>
-        /// 关键词检索 + **相关度排序**（T12）。
+        /// 关键词检索 + **相关度排序**。
         ///
         /// 实现要点：把 <c>ts_rank</c> 作为**投影列**算出来，而不是在原生 SQL 里直接 ORDER BY。
         /// 这样做的原因是保留可组合性：

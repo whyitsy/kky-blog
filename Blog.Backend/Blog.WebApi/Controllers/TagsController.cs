@@ -25,7 +25,7 @@ namespace Blog.WebApi.Controllers
             return ApiResponse<List<TagDto>>.Ok(items);
         }
 
-        /// <summary>创建标签（仅管理员；按 T6，Author 不能创建分类/标签）</summary>
+        /// <summary>创建标签（仅管理员；Author 不能创建分类/标签）</summary>
         [HttpPost]
         [Authorize(Policy = "AdminOnly")]
         public async Task<ApiResponse<TagDto>> Create([FromBody] CreateTagRequest request, CancellationToken cancellationToken)

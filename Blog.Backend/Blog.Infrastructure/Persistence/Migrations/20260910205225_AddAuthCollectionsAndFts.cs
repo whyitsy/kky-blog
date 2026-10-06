@@ -13,7 +13,7 @@ namespace Blog.Infrastructure.Persistence.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             // ══════════════════════════════════════════════════════════════════════
-            // ⚠️ 这两段 SQL **必须排在最前面**，不能挪到下面去（G12，2026-09-13 修复）。
+            // ⚠️ 这两段 SQL **必须排在最前面**，不能挪到下面去（2026-09-13 修复）。
             //
             // 原因：本迁移下面会 `AddColumn<SearchVector>`，而它是一个**生成列**，
             // 表达式里引用了 `to_tsvector('chinese', …)` —— 也就是说它**依赖
@@ -202,7 +202,7 @@ $$;");
                 onDelete: ReferentialAction.SetNull);
 
             // GIN 索引：tsvector 只在有索引时才能高效检索（倒排索引）
-            // 注意：`chinese` 检索配置在 **本方法最前面** 就已经建好了（见那里的说明，G12）。
+            // 注意：`chinese` 检索配置在 **本方法最前面** 就已经建好了（见那里的说明）。
             migrationBuilder.Sql(@"CREATE INDEX ix_posts_search ON ""Posts"" USING gin (""SearchVector"");");
         }
 

@@ -8,7 +8,7 @@ namespace Blog.WebApi.Controllers
     /// <summary>
     /// 账号管理。**整个控制器仅管理员可访问**。
     ///
-    /// 这是作者账号的唯一创建入口（T1：作者不开放自助注册）。
+    /// 这是作者账号的唯一创建入口（作者不开放自助注册）。
     /// 响应 DTO 不含任何凭据字段。
     /// </summary>
     [ApiController]

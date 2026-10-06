@@ -168,7 +168,7 @@ GHCR 里只有 **webapi / nginx** 两个镜像。compose 文件、脚本、PG �
 | `docker-compose.yml`、`docker-compose.prod.yml` | 走 CI：无需动作（会自动同步）；手工部署：`scp` 到 `/opt/blog/` |
 | `docker-compose.yml` 里 `pgsql:` / `redis:` 的 `image:` 行 | 服务器执行 `docker compose pull pgsql redis && docker compose up -d pgsql redis`（数据在命名卷里，不会丢） |
 | `tools/deploy/deploy.sh` | 走 CI：无需动作（会自动同步）；手工部署：`scp` 到 `/opt/blog/tools/deploy/` |
-| `tools/load/**`、`docs/**`、`learn/**` | 服务器不需要任何动作 |
+| `tools/load/**` | 服务器不需要任何动作 |
 
 ---
 

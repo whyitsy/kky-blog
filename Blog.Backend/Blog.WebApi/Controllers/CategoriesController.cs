@@ -25,7 +25,7 @@ namespace Blog.WebApi.Controllers
             return ApiResponse<List<CategoryDto>>.Ok(items);
         }
 
-        /// <summary>创建分类（仅管理员；按 T6，Author 不能创建分类/标签）</summary>
+        /// <summary>创建分类（仅管理员；Author 不能创建分类/标签）</summary>
         [HttpPost]
         [Authorize(Policy = "AdminOnly")]
         public async Task<ApiResponse<CategoryDto>> Create([FromBody] CreateCategoryRequest request, CancellationToken cancellationToken)

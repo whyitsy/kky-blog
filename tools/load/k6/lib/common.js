@@ -1,7 +1,7 @@
 // ============================================================================
 // k6 公共库：BASE_URL、SLO 阈值、统一响应体校验、结果摘要
 //
-// 为什么要有这个文件（learn/03 §8 的三个"必须写对的地方"）：
+// 为什么要有这个文件（三件"必须写对的地方"）：
 //   ① thresholds 里写 SLO —— 让"够不够快"变成跑完自动判定的断言，而不是文档里的一句话
 //   ② 解析响应体里的 code —— 本项目统一响应体是 {code,message,data}，
 //      **HTTP 200 也可能是业务失败**，只看状态码会把错误率系统性低估
@@ -14,9 +14,9 @@
 //   thresholds 与摘要都只看 `http_req_duration{endpoint:xxx}` 这个子指标。
 //
 // ⚠️ 下面 SLO / SLO_P99 / SLO.archivesBodyKiB 三个常量是
-//   `docs/06-技术债与待办.md` §3.1「SLO（2026-09-14 定稿）」表的**代码副本**。
-//   两处必须同步：文档改了这里要跟着改，这里改了文档也要跟着改 ——
-//   否则"跑完自动判定"判的不是定稿的 SLO，阈值本身成了第三个真相。
+//   SLO 目标（2026-09-14 定稿）的**唯一来源**。
+//   改这里等于改 SLO 定稿，必须走评审；README 的说明也要跟着改 ——
+//   否则"跑完自动判定"判的就不是定稿的 SLO。
 // ============================================================================
 
 import http from 'k6/http';
@@ -32,13 +32,13 @@ export const BASE_URL = __ENV.BASE_URL || 'http://127.0.0.1:8080';
 export const OUT_DIR = __ENV.OUT_DIR || 'tools/load/results/raw';
 
 /**
- * 摘要里必须带上 p50/p95/p99 —— 平均值会掩盖长尾（learn/03 §4.1：
- * 99 个 10ms + 1 个 9910ms，平均值只有 109ms，看起来"性能很好"）。
+ * 摘要里必须带上 p50/p95/p99 —— 平均值会掩盖长尾：
+ * 99 个 10ms + 1 个 9910ms，平均值只有 109ms，看起来"性能很好"。
  */
 export const TREND_STATS = ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'];
 
 /**
- * SLO 目标值 = docs/06 §3.1「SLO（2026-09-14 定稿）」表的 p95 列。
+ * SLO 目标值 = 下表 p95 列（2026-09-14 定稿）。
  * 每一项都可用 `-e SLO_P95_XXX=xxx` 覆盖 —— 那是**做对比实验**用的
  * （例如故意把目标收紧看余量），不是日常改目标的入口。
  */
@@ -116,8 +116,8 @@ export function baseOptions(o) {
 
   const thresholds = {
     // 只看本脚本的主请求：HTTP 层失败率。
-    // ⚠️ k6 的 `http_req_failed` 把**所有非 2xx/3xx**都算失败（4xx 也在内），比 docs/06 §3.1
-    //    那条"HTTP 5xx 比例 < 0.1%"更严 —— 这是**刻意**的：429 必须让整轮判定失败，
+    // ⚠️ k6 的 `http_req_failed` 把**所有非 2xx/3xx**都算失败（4xx 也在内），比
+    //    "HTTP 5xx 比例 < 0.1%"更严 —— 这是**刻意**的：429 必须让整轮判定失败，
     //    否则"限流没关"那一轮的数字会被当成有效基线；429 的**可见性**由下面那条单列指标负责。
     [`http_req_failed{endpoint:${o.endpoint}}`]: ['rate<0.01'],
     // 业务失败率（code !== 0）—— 统一响应体下这才是真实的错误率
@@ -150,7 +150,7 @@ export function baseOptions(o) {
   }
 
   return {
-    // 摘要里必须带上 p(50)/p(95)/p(99)：平均值会掩盖长尾（learn/03 §4.1）
+    // 摘要里必须带上 p(50)/p(95)/p(99)：平均值会掩盖长尾
     summaryTrendStats: TREND_STATS,
     discardResponseBodies: false, // 要解析 code，不能丢响应体
     scenarios: {
@@ -174,7 +174,7 @@ export function baseOptions(o) {
  * 校验统一响应体：HTTP 200 **且** code === 0。
  * 返回解析后的 data（解析失败返回 null，不会抛异常打断压测）。
  *
- * ⚠️ 三个失败指标**口径互不重叠**（docs/06 §3.1 的错误率口径）：
+ * ⚠️ 三个失败指标**口径互不重叠**：
  *   `http_req_failed`（k6 内置）→ HTTP 层失败：网络错误 + 4xx/5xx，**429 也在里面**
  *   `http_429`（自定义）        → 限流器在工作，**单列**（不算应用故障，但要让报告看得见）
  *   `business_errors`（自定义） → 拿到了统一响应体、但 `code !== 0`（"HTTP 200 也可能是失败"）
@@ -203,7 +203,7 @@ export function expectOk(res, endpoint, label) {
   // 业务失败 = 拿到了统一响应体、但 code !== 0（"HTTP 200 也可能是失败"）。
   // ⚠️ 必须显式排除 429：限流器的响应体是 `{"code":4091,"message":"请求过于频繁…"}`，
   //    也是一个非 0 的 code —— 不排除就会让"限流忘了关"同时污染业务失败率，
-  //    而 docs/06 §3.1 的口径要求 429 **单列**（它不是应用故障，但对用户就是失败）。
+  //    而口径要求 429 **单列**（它不是应用故障，但对用户就是失败）。
   //    分母 = 全部请求：没解析出响应体的算"非业务失败"，它已经记在 http_req_failed 里了。
   businessErrors.add(hasBody && body.code !== 0 && res.status !== 429, { endpoint });
 
@@ -226,7 +226,7 @@ export function reqParams(endpoint, extra) {
 // ---------------------------------------------------------------- 取 token（写接口用）
 
 /**
- * 登录拿 Admin token。密码来自环境变量，默认用文档里的开发种子账号（docs/05 §5.2）。
+ * 登录拿 Admin token。密码来自环境变量，默认用开发种子账号（admin@example.com）。
  * 只在 setup() 里调用一次 —— 不进入被测量的请求延迟。
  */
 export function login() {

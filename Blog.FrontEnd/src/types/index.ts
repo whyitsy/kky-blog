@@ -174,12 +174,12 @@ export interface PostQuery {
 export interface PostPayload {
   title: string
   content: string
-  /** 留空则后端自动取正文前 50 字；填写则以填写内容为准（T4） */
+  /** 留空则后端自动取正文前 50 字；填写则以填写内容为准 */
   summary: string
   coverImage: string
   categoryId: string | null
   tagIds: string[]
-  /** 所属专栏 id 集合（T2 多对多）；不传表示不改动关联 */
+  /** 所属专栏 id 集合（多对多）；不传表示不改动关联 */
   collectionIds: string[]
   /** 创建时可指定是否立即发布；更新时未使用，发布/下架走单独接口 */
   publish?: boolean
@@ -189,7 +189,7 @@ export interface PostPayload {
 
 /* ------------------------------------------------------------------ 认证 */
 /**
- * 账号角色。只有两档（见 archive/决策记录.md §3）：
+ * 账号角色。只有两档：
  *  - Admin：站点管理员，管理全部内容、账号、作者与站点配置
  *  - Author：内容作者，只能管理自己的文章与个人资料
  */
@@ -216,7 +216,7 @@ export interface LoginRequest {
   password: string
 }
 
-/** 登录响应：只发 Access Token，无 Refresh Token（T7） */
+/** 登录响应：只发 Access Token，无 Refresh Token */
 export interface LoginResponse {
   token: string
   expiresAt: string
@@ -228,7 +228,7 @@ export interface LoginResponse {
 /**
  * 专栏：把多篇文章组织成一个系列。
  * 与分类的区别：分类是单值归类（一篇文章一个分类），专栏是系列组织，
- * 且**一篇文章可属于多个专栏**（T2 决策，多对多）。
+ * 且**一篇文章可属于多个专栏**（多对多）。
  */
 /** 文章详情里回带的专栏简要信息 */
 export interface CollectionBriefDto {
