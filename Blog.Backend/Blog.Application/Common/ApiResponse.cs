@@ -10,7 +10,7 @@ namespace Blog.Application.Common
     /// 拿到的是一个 **HTTP 200** —— 于是「参数不合法」在这一个端点是 200、在别处是 400，
     /// 客户端必须记得"这个接口只看 code"。
     ///
-    /// <para><b>只有「框架钩子」才允许 return 失败响应</b>（见 docs/02-架构与数据模型.md §4.2）：</para>
+    /// <para><b>只有「框架钩子」才允许 return 失败响应</b>：</para>
     /// 那些地方**没有业务调用栈可抛**——中间件、<c>InvalidModelStateResponseFactory</c>、
     /// JwtBearer 的 <c>OnChallenge</c>/<c>OnForbidden</c>、限流中间件、状态码页兜底。
     /// 它们正是 <see cref="ApiResponse.Fail"/> 的调用者。

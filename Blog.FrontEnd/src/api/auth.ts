@@ -4,7 +4,7 @@ import type { AuthUser, LoginRequest, LoginResponse } from '@/types'
 /**
  * 认证接口。
  *
- * 按 T1 决策**没有注册端点**：作者账号由管理员在「账号管理」中创建，
+ * **没有注册端点**：作者账号由管理员在「账号管理」中创建，
  * 因此这里只有登录、注销与获取当前用户。
  */
 

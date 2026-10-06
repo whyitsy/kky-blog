@@ -36,9 +36,9 @@ const publish = ref(true)
 const auth = useAuthStore()
 
 /**
- * 分类/标签的写接口仅 Admin 可用（T6 决策）。
+ * 分类/标签的写接口仅 Admin 可用。
  * 作者也会用这个编辑器，因此「快速新建」只对管理员显示，
- * 避免出现「看得到、点了报 403」的死路（见 suggestion.md T13）。
+ * 避免出现「看得到、点了报 403」的死路。
  */
 const canManageTaxonomy = computed(() => auth.isAdmin)
 
@@ -72,7 +72,7 @@ function syncFromInitial() {
   coverImage.value = props.initial.coverImage
   categoryId.value = props.initial.categoryId
   selectedTagIds.value = props.initial.tags.map((t) => t.id)
-  // 一篇文章可属于多个专栏（T2）
+  // 一篇文章可属于多个专栏
   selectedCollectionIds.value = (props.initial.collections ?? []).map((c) => c.id)
 }
 
@@ -211,7 +211,7 @@ function submit() {
       <span class="field-label">摘要</span>
       <!-- maxlength 与字数显示都是必须的：
            以前这里是 rows="2" 且两者皆无，粘贴长文本时只露两行，
-           用户根本看不出真实长度，结果一路提交到数据库才报错（archive/问题排查记录.md §3）。
+           用户根本看不出真实长度，结果一路提交到数据库才报错。
            上限 200 与后端 FieldLimits.PostSummary / Posts.Summary 列宽保持一致。 -->
       <textarea
         v-model="summary"
@@ -293,7 +293,7 @@ function submit() {
       </div>
     </div>
 
-    <!-- 专栏（多选）：一篇文章可属于多个专栏（T2）。专栏是内容组织者，作者也可挂载 -->
+    <!-- 专栏（多选）：一篇文章可属于多个专栏。专栏是内容组织者，作者也可挂载 -->
     <div class="field">
       <span class="field-label">所属专栏（可多选）</span>
       <div class="tag-pool">

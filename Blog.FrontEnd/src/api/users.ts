@@ -4,7 +4,7 @@ import type { AuthUser, UserRole } from '@/types'
 /**
  * 账号管理接口。**整个模块仅 Admin 可用**（后端 `[Authorize(Policy = "AdminOnly")]`）。
  *
- * 这是作者账号的唯一创建入口（T1：作者不开放自助注册）。
+ * 这是作者账号的唯一创建入口（作者不开放自助注册）。
  * 所有 DTO 都不含凭据字段。
  */
 

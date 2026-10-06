@@ -17,7 +17,7 @@
 #
 # 也就是说：**合并进 main 只「构建并留档镜像」，上线（碰生产）只由 tag 触发。**
 # 为什么把两者拆开：合并是日常高频动作，而 deploy 会重建容器、中断线上几十秒 ——
-# 让"改代码"和"上线"共用同一个动作，等于每次合并都在赌测试覆盖不到的地方（见 learn/02 §5）。
+# 让"改代码"和"上线"共用同一个动作，等于每次合并都在赌测试覆盖不到的地方。
 # 首次部署不在这里（服务器上还没有 compose 与 .env），仍走本地打包，见 tools/deploy/README.md
 # ============================================================================
 
@@ -71,7 +71,7 @@ jobs:
       - name: 检查行尾是否被写成 CRLF
         run: |
           if git ls-files --eol | grep -q 'w/crlf'; then
-            echo "::error::检测到 CRLF 行尾，请检查编辑器设置（见 docs/05 §7.2）"
+            echo "::error::检测到 CRLF 行尾，请检查编辑器设置"
             echo "--- 受影响文件 ---"
             git ls-files --eol | grep 'w/crlf'
             exit 1
@@ -349,7 +349,7 @@ jobs:
                       f'| 行覆盖 | {line_rate:.1f}% ({covered}/{valid}) |\n'
                       f'| 分支覆盖 | {branch_rate:.1f}% |\n\n'
                       '> 已排除 EF 迁移与源生成代码（`coverage.runsettings`）。\n'
-                      '> **不对总量设阈值**——阈值只会逼人写不 assert 的测试来凑数（learn/02 §4.2）。\n'
+                      '> **不对总量设阈值**——阈值只会逼人写不 assert 的测试来凑数。\n'
                   )
           PY
 
@@ -405,7 +405,7 @@ jobs:
           if ! dotnet list Blog.Backend/Blog.Backend.slnx package \
                  --vulnerable --include-transitive 2>&1 | tee "$RUNNER_TEMP/nuget-vuln.txt"; then
             echo "::error::NuGet 漏洞扫描命令本身失败了（还原未完成？网络不通？）"
-            echo "::error::⚠️ 不要把这种情况当成「没有漏洞」—— 这是一次「不知道」（见 archive/问题排查记录.md §8）"
+            echo "::error::⚠️ 不要把这种情况当成「没有漏洞」—— 这是一次「不知道」"
             exit 1
           fi
 
@@ -426,7 +426,7 @@ jobs:
           # npm audit 正常时一定打印 "found N vulnerabilities"（N 可以是 0）。
           # 没有这行 → 审计没执行，而不是"没有漏洞"。
           if ! grep -qiE 'vulnerabilit' "$RUNNER_TEMP/npm-audit.txt"; then
-            echo "::error::npm audit 没有产出可识别的结论 —— 扫描很可能根本没执行（见 archive/问题排查记录.md §8）"
+            echo "::error::npm audit 没有产出可识别的结论 —— 扫描很可能根本没执行"
             echo "::error::⚠️ 不要把它当成「没有漏洞」"
             exit 1
           fi
@@ -496,7 +496,7 @@ jobs:
       #
       # 为什么 main 分支不更新 :latest：
       #   `latest` 只有在「打 tag 发布」时才移动，它才等于「最新正式版」这个可靠含义。
-      #   否则它只是一个会飘的别名，说不清线上跑的是哪一版（docs/05 §8.9）。
+      #   否则它只是一个会飘的别名，说不清线上跑的是哪一版。
       #   日常上 main 的构建仍可用不可变的 :<sha> 部署，能力没有任何损失。
       # ────────────────────────────────────────────────────────────────
       - name: 解析版本号
@@ -689,7 +689,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           # 可选加固：填了这个 secret 就校验服务器主机密钥（防中间人）；
-          # 不填则退回"不校验"。取值方法见 docs/05 §8.7.2
+          # 不填则退回"不校验"。
           fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
           source: "docker-compose.yml,docker-compose.prod.yml,tools/deploy/deploy.sh"
           target: /opt/blog/
@@ -708,7 +708,7 @@ jobs:
 
       # ⚠️ 「SSH 命令退出码 0」不等于「公网真的在跑这一版」：
       #    Caddy / nginx / 应用缓存任何一层没换，上一步都看不出来。
-      #    这是失效哨兵 —— 必须**看到线上报出这次的 sha**才算部署成功（learn/02 §4）。
+      #    这是失效哨兵 —— 必须**看到线上报出这次的 sha**才算部署成功。
       - name: 校验线上真的在跑这次提交（防假绿）
         env:
           # 站点地址可以用仓库变量 SITE_URL 覆盖；没设就用线上域名

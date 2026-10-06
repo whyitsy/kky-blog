@@ -52,7 +52,7 @@ namespace Blog.Application.Services.Post
             var normalized = Normalize(query);
 
             // 管理端：Author 角色只能看到自己的草稿/文章；Admin 可见全部。
-            // 这是「草稿权限保护」（Q7）的关键一环 —— 仅靠端点鉴权不够，必须过滤数据。
+            // 这是「草稿权限保护」的关键一环 —— 仅靠端点鉴权不够，必须过滤数据。
             if (normalized.IncludeUnpublished && !_currentUser.IsAdmin)
             {
                 // 非管理员读「含草稿」列表时，强制限定为**自己创建的**（账号维度）
@@ -84,7 +84,7 @@ namespace Blog.Application.Services.Post
             GetDetailInternalAsync(id, countView: true, cancellationToken);
 
         /// <summary>
-        /// 详情（**不计数**）：管理端/编辑页取数据用，避免后台操作污染浏览量（Q12）。
+        /// 详情（**不计数**）：管理端/编辑页取数据用，避免后台操作污染浏览量。
         /// </summary>
         public Task<PostDetailDto?> GetDetailReadonlyAsync(Guid id, CancellationToken cancellationToken = default) =>
             GetDetailInternalAsync(id, countView: false, cancellationToken);
@@ -377,7 +377,7 @@ namespace Blog.Application.Services.Post
         /// <summary>
         /// 写文章时的入参校验。
         ///
-        /// <para>⚠️ <b>摘要长度以前漏在这里</b>（见 archive/问题排查记录.md §3）：
+        /// <para>⚠️ <b>摘要长度以前漏在这里</b>：
         /// 数据库有 <c>varchar(120)</c> 约束，但应用层不校验、前端也没有 <c>maxlength</c>，
         /// 于是超长时一路穿到数据库，抛 <c>DbUpdateException</c>，
         /// 用户看到的是「服务器内部错误」而不是「摘要太长了」。</para>

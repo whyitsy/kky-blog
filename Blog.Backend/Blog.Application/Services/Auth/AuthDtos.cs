@@ -3,7 +3,7 @@ namespace Blog.Application.Services.Auth
     /// <summary>登录请求（作者与管理员共用结构，端点不同）</summary>
     public record LoginRequest(string Email, string Password);
 
-    /// <summary>登录成功响应。本项目只发 Access Token，无 Refresh Token（T7）</summary>
+    /// <summary>登录成功响应。本项目只发 Access Token，无 Refresh Token</summary>
     public record LoginResponse(
         string Token,
         DateTimeOffset ExpiresAt,
@@ -20,7 +20,7 @@ namespace Blog.Application.Services.Auth
         string? AuthorName,
         DateTimeOffset? LastLoginAt);
 
-    /// <summary>创建账号（仅管理员）。作者账号由此产生（T1：不开放自助注册）</summary>
+    /// <summary>创建账号（仅管理员）。作者账号由此产生（不开放自助注册）</summary>
     public record CreateUserRequest(
         string Email,
         string Password,

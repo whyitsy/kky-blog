@@ -164,7 +164,7 @@ const readMinutes = computed(() => (post.value ? Math.max(1, Math.round(post.val
             >
               {{ tag.name }}
             </RouterLink>
-            <!-- 所属专栏：指向专栏详情页（一篇文章可属于多个专栏，T2） -->
+            <!-- 所属专栏：指向专栏详情页（一篇文章可属于多个专栏） -->
             <RouterLink
               v-for="col in post.collections ?? []"
               :key="col.id"

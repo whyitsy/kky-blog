@@ -50,7 +50,7 @@ try
     // 前端拦截器按 {code,message} 处理，一旦某次请求在校验阶段就被拦下，
     // 它拿到的是 {title,errors} —— 用户看到的就是空白或 undefined。
     //
-    // 实测缺口（docs/02-架构与数据模型.md §4.1）：
+    // 实测缺口：
     //   GET /api/posts/search 不带 keyword
     //     → {"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1",
     //        "title":"One or more validation errors occurred.", "status":400, ...}
@@ -79,7 +79,7 @@ try
     builder.Services.AddOpenApi();
 
     // ---------------------------------------------------------------- 认证（JWT）
-    // 只发 Access Token，不做 Refresh Token（T7）。有效期见 appsettings 的 Jwt 节。
+    // 只发 Access Token，不做 Refresh Token。有效期见 appsettings 的 Jwt 节。
     var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
     // 环境变量用 .NET 标准的分层写法：Jwt__SigningKey（双下划线代表冒号）
     var signingKey = jwtOptions.SigningKey;
@@ -164,7 +164,7 @@ try
             };
         });
 
-    // 授权策略：两档角色（见 docs/02-架构与数据模型.md §10.1）
+    // 授权策略：两档角色
     //
     // 每个策略都叠加 RequireResolvedUserRequirement：角色来自 JWT claim，
     // 而 JWT 是无状态的（注销/改密后旧 token 在到期前依然签名有效）。
@@ -245,7 +245,7 @@ try
     // 实测（修复前）：GET /api/posts/not-a-guid 与 GET /api/totally/wrong/path
     // 都是 "HTTP 404 | Content-Type='' | Body=<空>"。
     //
-    // 于是 docs/02 §4.1 承诺的「所有接口（含错误）返回 {code,message,data}」在路由阶段破功，
+    // 于是「所有接口（含错误）返回 {code,message,data}」这项承诺在路由阶段破功，
     // 前端 http.ts 只能退回「按 HTTP 状态码硬编码兜底」。
     //
     // 这里用状态码页兜底：凡是状态码 ≥ 400 且**响应体为空**的响应，一律补写成统一结构。

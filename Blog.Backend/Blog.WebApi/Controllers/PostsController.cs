@@ -23,7 +23,7 @@ namespace Blog.WebApi.Controllers
         /// 分页文章列表（支持 categoryId / tagId / collectionId / authorId / keyword 组合过滤）。
         /// keyword 走中文全文检索。
         /// includeUnpublished=true 时必须已登录，且 Author 角色只能看到自己创建的文章
-        /// （数据级过滤在 PostService 内完成，见草稿权限保护 Q7）。
+        /// （数据级过滤在 PostService 内完成，见「草稿权限保护」）。
         /// </summary>
         [HttpGet]
         public async Task<ApiResponse<PagedResult<PostCardDto>>> GetPaged(
@@ -67,7 +67,7 @@ namespace Blog.WebApi.Controllers
         /// <summary>
         /// 文章详情（**不计数**）：供管理端/编辑器取数据用。
         /// 与 GET /api/posts/{id} 的区别是**不会**让浏览量 +1，
-        /// 避免「后台点一次编辑就 +1」污染统计（见 archive/决策记录.md §4 / Q12）。
+        /// 避免「后台点一次编辑就 +1」污染统计。
         /// 需要登录（编辑器场景），且未发布文章仍受草稿权限保护。
         /// </summary>
         [HttpGet("{id:guid}/readonly")]

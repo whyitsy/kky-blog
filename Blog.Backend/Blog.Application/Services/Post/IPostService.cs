@@ -11,7 +11,7 @@ namespace Blog.Application.Services.Post
 
         /// <summary>
         /// 详情（**不计数**）：管理端/编辑页取数据用。
-        /// 避免「后台取 version 查看一次就 +1 浏览量」的数据污染（Q12）。
+        /// 避免「后台取 version 查看一次就 +1 浏览量」的数据污染。
         /// </summary>
         Task<PostDetailDto?> GetDetailReadonlyAsync(Guid id, CancellationToken cancellationToken = default);
 

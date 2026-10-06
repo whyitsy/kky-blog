@@ -93,7 +93,7 @@ namespace Blog.Infrastructure
             // 都要读一次账号，只为校验存在性 / IsActive / TokenVersion。
             // 缓存 5 分钟 + 写路径主动失效，见 ICurrentUserCache 的说明。
             services.AddScoped<ICurrentUserCache, CurrentUserCache>();
-            // 多实例 + 无 Redis 属于危险配置：限流阈值会被放大到实例数倍（见 docs/02-架构与数据模型.md §16）。
+            // 多实例 + 无 Redis 属于危险配置：限流阈值会被放大到实例数倍。
             // 在启动期显式校验并直接失败，而不是运行期静默降级。
             DeploymentGuard.Validate(configuration);
 

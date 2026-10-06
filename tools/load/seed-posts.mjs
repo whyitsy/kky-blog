@@ -12,7 +12,7 @@
 //
 // ① **不走 API，直接写库**。1000 篇走 POST /api/posts 至少是 1000 次 HTTP + 1000 次
 //    Pbkdf2 之外的完整业务链路，而 write 规则限流是 **2 次/秒** —— 光限流就要 500 秒。
-//    造数据是准备工作，不该被"为了保护线上而存在的限流器"拖住（learn/03 §9 热点一）。
+//    造数据是准备工作，不该被"为了保护线上而存在的限流器"拖住。
 //
 // ② **确定性 ID + 确定性内容**。ID 由「固定基准时间 + 序号」生成的 UUIDv7 决定，
 //    正文由固定种子的 PRNG 决定 —— 于是同一个序号每次生成的字节完全相同，
@@ -23,7 +23,7 @@
 //
 // ④ **正文必须长且有中文**。列表页只投影卡片字段（不加载 Content），但详情页会加载
 //    完整 Content，**搜索走 zhparser 中文分词 + ts_rank**。正文太短时中文全文检索的
-//    真实开销会被严重低估（learn/03 §7.1 的"正文长度也要真实"）。
+//    真实开销会被严重低估（"正文长度也要真实"）。
 //
 // ⑤ **不写 `SearchVector`**。它是 `GENERATED ALWAYS AS ... STORED` 生成列，
 //    由数据库按 Title/Summary/Content 自动算（含 zhparser 分词），自己写会直接报错。
@@ -312,7 +312,7 @@ function buildSeedSql(n, ctx) {
     const publishedAt = isDraft ? null : Date.now() - randInt(0, SPREAD_MONTHS * 30) * 86400_000 - i * 60_000;
     const createdAt = isDraft ? Date.now() - randInt(0, SPREAD_MONTHS * 30) * 86400_000 : publishedAt;
     const title = `${TITLE_PREFIX} #${String(i).padStart(5, '0')} · ${TOPICS[i % TOPICS.length].name}`;
-    // 摘要：与标题、与其它文章都不同（含序号）。前 50 字是自动摘要规则的长度（T4）
+    // 摘要：与标题、与其它文章都不同（含序号）。前 50 字是自动摘要规则的长度
     const summary = `【压测样本 #${i}】${content.replace(/[#>`\n]/g, ' ').trim().slice(0, 120)}`;
     const categoryId = rand() < 0.85 ? pick(allCats) : null;
     const viewCount = randInt(0, 5000);

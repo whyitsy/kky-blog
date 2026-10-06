@@ -7,9 +7,9 @@
 #   ./tools/load/run-baseline.sh --skip-cold        # 跳过冷缓存（默认会跑）
 #
 # 它做了什么（顺序不能乱）：
-#   ① 记录环境规格     —— 没有 CPU 核数/内存/数据量/冷热状态，数字无法复现（learn/03 §11.1 纪律 3）
-#   ② 等 /health 就绪  —— 坑 7：容器启动 ≠ 可连接
-#   ③ 校验限流已关     —— 没关就**直接退出**：那种数字测的是限流器，不是应用（坑 1）
+#   ① 记录环境规格     —— 没有 CPU 核数/内存/数据量/冷热状态，数字无法复现
+#   ② 等 /health 就绪  —— 容器启动 ≠ 可连接
+#   ③ 校验限流已关     —— 没关就**直接退出**：那种数字测的是限流器，不是应用
 #   ④ 预热缓存         —— 热缓存组
 #   ⑤ B0 冒烟          —— 冒烟不过，后面全部作废
 #   ⑥ 六接口基线       —— 每个脚本自带 thresholds，跑完自动判 SLO
@@ -137,7 +137,7 @@ done | sort | uniq -c | tr '\n' ' ')
 echo "  25 次 search 的状态码分布：$RL_HITS"
 if echo "$RL_HITS" | grep -q '429'; then
   cat <<'EOF'
-  ❌ 检测到 429：限流仍然开着。**这种数字测的是限流器，不是应用**（learn/03 §9 热点一）。
+  ❌ 检测到 429：限流仍然开着。**这种数字测的是限流器，不是应用**。
      先执行：
        docker compose -f docker-compose.yml -f tools/load/docker-compose.loadtest.yml up -d webapi
      等它 healthy（约 10~30 秒，会重跑一次迁移检查）后重跑本脚本。

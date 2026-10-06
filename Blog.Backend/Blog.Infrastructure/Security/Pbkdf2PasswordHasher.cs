@@ -4,12 +4,12 @@ using Blog.Application.Interfaces;
 namespace Blog.Infrastructure.Security
 {
     /// <summary>
-    /// PBKDF2 密码哈希（T3 决策：用框架内置实现，不引入三方包）。
+    /// PBKDF2 密码哈希（用框架内置实现，不引入三方包）。
     ///
     /// 存储格式（自描述，便于将来提升迭代次数后仍能校验旧密码）：
     ///     pbkdf2-sha512${iterations}${base64(salt)}${base64(hash)}
     ///
-    /// 安全要点（见 learn/01-后端知识地图.md §9.2、§9.4）：
+    /// 安全要点：
     ///   - 每用户独立随机盐（16 字节）
     ///   - 迭代次数可调；登录成功时若发现参数过旧可静默升级（NeedsRehash）
     ///   - 校验用 FixedTimeEquals，防时序攻击

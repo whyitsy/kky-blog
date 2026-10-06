@@ -117,7 +117,7 @@ async function onSubmit() {
         <RouterLink to="/" class="link">返回首页</RouterLink>
       </footer>
 
-      <!-- 按 T1 决策没有注册页：账号由管理员在后台创建 -->
+      <!-- 没有注册页：账号由管理员在后台创建 -->
       <p class="hint">
         没有账号？账号由管理员在「账号管理」中创建后发放。管理员与作者使用同一个登录入口。
       </p>

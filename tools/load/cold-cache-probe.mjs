@@ -7,7 +7,7 @@
 //   node tools/load/cold-cache-probe.mjs --rounds 10 --endpoints config,archives,list,detail
 //   node tools/load/cold-cache-probe.mjs --json tools/load/results/raw/cold-cache.json
 //
-// 为什么不能用 k6 测冷缓存（learn/03 §7.2 坑 4）：
+// 为什么不能用 k6 测冷缓存：
 //   恒定载荷下**只有第一个请求是冷的**，后面全是热缓存，p95 会被热缓存淹没，
 //   得出严重乐观的结论。k6 本身不能执行外部命令（清 Redis），
 //   所以冷缓存必须由"能同时操作 Redis 和 HTTP 的探针"来测 —— 就是这个脚本。
