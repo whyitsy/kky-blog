@@ -1,5 +1,6 @@
 using Blog.Application.Common;
 using Blog.Application.Common.Exceptions;
+using Blog.Application.Interfaces;
 using Blog.Application.Services.Collection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,10 +16,12 @@ namespace Blog.WebApi.Controllers
     public class CollectionsController : ControllerBase
     {
         private readonly ICollectionService _collections;
+        private readonly ICurrentUser _currentUser;
 
-        public CollectionsController(ICollectionService collections)
+        public CollectionsController(ICollectionService collections, ICurrentUser currentUser)
         {
             _collections = collections;
+            _currentUser = currentUser;
         }
 
         /// <summary>
@@ -104,7 +107,16 @@ namespace Blog.WebApi.Controllers
 
         // ---------------------------------------------------------------- 内部小工具
 
-        private bool IsAdmin() => User.IsInRole(nameof(Domain.Entities.UserRole.Admin));
+        /// <summary>
+        /// 是否管理员 —— 读的是 <see cref="ICurrentUser"/>（身份解析结果），
+        /// **不是** <c>User.IsInRole(...)</c>。
+        ///
+        /// <para>这两条专栏读接口是匿名可访问的，不走 <c>[Authorize]</c>，因此也就不会经过
+        /// <c>RequireResolvedUserRequirement</c>。若直接读 JWT claim，一个「已注销 / 已停用
+        /// 但尚未过期」的 Admin token 会被继续当作管理员，从而列出并读到未发布专栏
+        /// （claims 里的 TokenVersion 校验结果只有解析中间件知道）。</para>
+        /// </summary>
+        private bool IsAdmin() => _currentUser.IsAdmin;
 
         private void RequireAdmin()
         {
