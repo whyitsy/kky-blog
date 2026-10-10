@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Blog.Tests.Integration;
 
 /// <summary>
-/// 媒体地址（作者头像 / 文章封面 / 站点 Logo / 首屏背景图）的**端点级**校验测试。
+/// 媒体地址（作者头像 / 文章封面 / 专栏封面 / 站点 Logo / 首屏背景图）的**端点级**校验测试。
 ///
 /// <para><b>为什么单元测试不够</b></para>
 /// MediaPathTests 证明的是「判定逻辑本身对不对」。而这次缺陷的真正成因是
@@ -275,6 +275,95 @@ public sealed class MediaUrlValidationTests
         Assert.NotNull(data);
     }
 
+    // ------------------------------------------------------------------ 专栏封面
+
+    [Theory]
+    [InlineData("https://evil.com/cover.png")]
+    [InlineData("//evil.com/cover.png")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")]
+    [InlineData("/api/files/../../etc/passwd")]
+    public async Task 创建专栏_非本站封面_被拒(string coverImage)
+    {
+        var token = await AdminAsync();
+
+        var (status, code, _, message) = await _api.CallAsync<object>(
+            HttpMethod.Post, "/api/collections", token,
+            new
+            {
+                title = "专栏封面越权试探",
+                slug = $"cover-probe-{Guid.NewGuid():N}",
+                description = (string?)null,
+                coverImage,
+                sortOrder = 0,
+                isPublished = false,
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.Equal(Codes.InvalidArgument, code);
+        Assert.Contains("封面", message);
+    }
+
+    [Fact]
+    public async Task 创建专栏_本站封面_放行()
+    {
+        var token = await AdminAsync();
+
+        var (status, code, data, message) = await _api.CallAsync<CollectionBrief>(
+            HttpMethod.Post, "/api/collections", token,
+            new
+            {
+                title = "专栏封面放行",
+                slug = $"cover-ok-{Guid.NewGuid():N}",
+                description = (string?)null,
+                coverImage = GoodUrl,
+                sortOrder = 0,
+                isPublished = false,
+            });
+
+        Assert.True(status == HttpStatusCode.OK && code == Codes.Ok,
+            $"本站封面应放行，实际 status={status} code={code} message={message}");
+        Assert.NotNull(data);
+    }
+
+    [Fact]
+    public async Task 更新专栏_非本站封面_被拒()
+    {
+        var token = await AdminAsync();
+
+        var created = await _api.CallAsync<CollectionBrief>(
+            HttpMethod.Post, "/api/collections", token,
+            new
+            {
+                title = "专栏封面更新试探",
+                slug = $"cover-update-{Guid.NewGuid():N}",
+                description = (string?)null,
+                coverImage = GoodUrl,
+                sortOrder = 0,
+                isPublished = false,
+            });
+
+        Assert.True(created.Status == HttpStatusCode.OK && created.Data is not null,
+            $"前置创建失败 status={created.Status} code={created.Code} {created.Message}");
+
+        var (status, code, _, message) = await _api.CallAsync<object>(
+            HttpMethod.Put, $"/api/collections/{created.Data!.Id}", token,
+            new
+            {
+                title = "专栏封面更新试探",
+                slug = created.Data.Slug,
+                description = (string?)null,
+                coverImage = EvilUrl,
+                sortOrder = 0,
+                isPublished = false,
+                version = created.Data.Version,
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.Equal(Codes.InvalidArgument, code);
+        Assert.Contains("封面", message);
+    }
+
     // ------------------------------------------------------------------ 站点配置：Logo
 
     [Theory]
@@ -437,3 +526,6 @@ public sealed record SiteConfigSnapshot(
     List<string> HeroBackgrounds,
     DateTimeOffset? FoundingDate,
     Dictionary<string, int> Versions);
+
+/// <summary>专栏响应里本文件需要用到的字段（其余字段忽略）</summary>
+public sealed record CollectionBrief(Guid Id, string Slug, int Version);

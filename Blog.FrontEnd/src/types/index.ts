@@ -151,7 +151,12 @@ export interface UpdateAuthorPayload {
   email: string
   bio: string
   avatar: string
-  version: number
+  /**
+   * 乐观锁版本号。**刻意允许缺失**：调用方拿不到真实版本号时不要编一个，
+   * 让它缺着发出去 —— 后端会按「缺少合法的版本号」返回 4001。
+   * （编一个假版本号更危险：万一碰巧对上了，反而绕过了乐观锁。）
+   */
+  version?: number
 }
 
 export interface PostQuery {

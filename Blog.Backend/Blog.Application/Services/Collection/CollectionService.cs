@@ -62,7 +62,10 @@ namespace Blog.Application.Services.Collection
                 request.Title.Trim(),
                 slug,
                 (request.Description ?? string.Empty).Trim(),
-                (request.CoverImage ?? string.Empty).Trim(),
+                // 封面只接受本站上传的地址（与文章封面 / 作者头像 / 站点 Logo 同一套白名单）。
+                // 这里以前是原样 Trim 存库：前端虽然有输入框，但 curl 一样能塞外链，
+                // 地址最终会进 <img src>，于是把访客 IP/UA 泄露给第三方。
+                MediaPath.Validate(request.CoverImage, "封面"),
                 request.SortOrder,
                 request.IsPublished);
 
@@ -93,7 +96,8 @@ namespace Blog.Application.Services.Collection
                 request.Title.Trim(),
                 slug,
                 (request.Description ?? string.Empty).Trim(),
-                (request.CoverImage ?? string.Empty).Trim(),
+                // 同 CreateAsync：封面走 MediaPath 白名单，非法地址直接 4001
+                MediaPath.Validate(request.CoverImage, "封面"),
                 request.SortOrder,
                 request.IsPublished);
 

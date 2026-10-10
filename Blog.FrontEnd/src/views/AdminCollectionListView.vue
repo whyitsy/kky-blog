@@ -9,6 +9,8 @@ import {
   updateCollection,
 } from '@/api/collections'
 import { getPosts } from '@/api/posts'
+import { uploadFile } from '@/api/files'
+import { ACCEPT_IMAGE } from '@/utils/media'
 import FormSkeleton from '@/components/skeleton/FormSkeleton.vue'
 import type { CollectionDto, CollectionPayload, PostListItemDto } from '@/types'
 
@@ -29,6 +31,34 @@ const form = reactive<CollectionPayload>({
   sortOrder: 0,
   isPublished: true,
 })
+const uploadingCover = ref(false)
+
+/**
+ * 封面上传。刻意**不提供 URL 输入框**：封面地址会被直接放进 <img src>，
+ * 允许手填就等于允许外部链接（访客 IP 泄露）与 javascript: / data: 之类的注入。
+ * 服务端对 coverImage 也做 MediaPath 白名单校验，两层一致
+ * —— 与文章封面 / 作者头像 / 站点 Logo 的处理保持一致。
+ */
+async function onPickCover(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    errorMsg.value = '请选择图片文件'
+    input.value = ''
+    return
+  }
+  uploadingCover.value = true
+  errorMsg.value = ''
+  try {
+    form.coverImage = await uploadFile(file)
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : '封面上传失败'
+  } finally {
+    uploadingCover.value = false
+    input.value = ''
+  }
+}
 
 // ---------------------------------------------------------------- 文章编排
 const managing = ref<CollectionDto | null>(null)
@@ -238,11 +268,40 @@ function selectedTitle(id: string) {
           <input v-model.number="form.sortOrder" class="input" type="number" min="0" />
           <span class="hint">越小越靠前</span>
         </label>
+      </div>
 
-        <label class="field">
-          <span class="label">封面图 URL</span>
-          <input v-model.trim="form.coverImage" class="input" placeholder="留空用渐变占位" />
-        </label>
+      <div class="field">
+        <span class="label">封面图</span>
+        <div class="cover-row">
+          <div class="cover-preview" :class="{ empty: !form.coverImage }">
+            <img v-if="form.coverImage" :src="form.coverImage" alt="封面预览" />
+            <span v-else>未设置</span>
+          </div>
+          <div class="cover-actions">
+            <div class="cover-buttons">
+              <label class="btn-mini">
+                {{ uploadingCover ? '上传中...' : form.coverImage ? '更换封面' : '上传封面' }}
+                <input
+                  type="file"
+                  :accept="ACCEPT_IMAGE"
+                  hidden
+                  :disabled="uploadingCover"
+                  @change="onPickCover"
+                />
+              </label>
+              <button
+                v-if="form.coverImage"
+                type="button"
+                class="btn-mini ghost"
+                :disabled="uploadingCover"
+                @click="form.coverImage = ''"
+              >
+                移除封面
+              </button>
+            </div>
+            <small class="hint">封面只能上传设置；不设置时用内置渐变占位</small>
+          </div>
+        </div>
       </div>
 
       <label class="field">
@@ -434,6 +493,68 @@ function selectedTitle(id: string) {
 .textarea {
   resize: vertical;
   font-family: inherit;
+}
+
+/* 封面：上传 + 预览。刻意不提供 URL 输入框，理由见 onPickCover 的注释 */
+.cover-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.cover-preview {
+  width: 160px;
+  height: 90px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  font: var(--text-caption);
+  color: var(--text-subtle);
+}
+.cover-preview.empty {
+  border-style: dashed;
+}
+.cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cover-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.btn-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--text-default);
+  font: var(--text-caption);
+  cursor: pointer;
+}
+.btn-mini:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-mini.ghost {
+  background: transparent;
+  color: #e35151;
+  border-color: color-mix(in srgb, #e35151 40%, transparent);
 }
 
 .switch {
