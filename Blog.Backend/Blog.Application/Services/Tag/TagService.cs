@@ -62,7 +62,7 @@ namespace Blog.Application.Services.Tag
             var tag = await _tags.GetByIdAsync(id, cancellationToken)
                 ?? throw new BusinessException("标签不存在", ErrorCodes.NotFound);
 
-            _tags.ApplyOptimisticVersion(tag, request.Version);
+            _tags.ApplyOptimisticVersion(tag, ValidateVersion(request.Version));
 
             if (!string.Equals(tag.Name, request.Name, StringComparison.Ordinal) &&
                 await _tags.ExistsByNameAsync(request.Name, cancellationToken: cancellationToken))
@@ -82,7 +82,7 @@ namespace Blog.Application.Services.Tag
             var tag = await _tags.GetByIdAsync(id, cancellationToken)
                 ?? throw new BusinessException("标签不存在", ErrorCodes.NotFound);
 
-            _tags.ApplyOptimisticVersion(tag, version);
+            _tags.ApplyOptimisticVersion(tag, ValidateVersion(version));
 
             _tags.Remove(tag);
             await _uow.SaveChangesAsync(cancellationToken);
@@ -101,6 +101,19 @@ namespace Blog.Application.Services.Tag
                 throw new BusinessException("名称不能为空", ErrorCodes.InvalidArgument);
             if (name.Length > 50)
                 throw new BusinessException("名称长度不能超过 50", ErrorCodes.InvalidArgument);
+        }
+
+        /// <summary>
+        /// 校验乐观锁版本号。缺失/非法（&lt; 1）属于**参数错误**，必须在这里拦下：
+        /// 仓储层对 &lt; 1 会抛 <see cref="ArgumentOutOfRangeException"/>，
+        /// 那是「未处理异常」，最终表现为 500 —— 与其它资源的 4001 不一致。
+        /// （文案与 CategoryService / PostService / UserService 保持一致。）
+        /// </summary>
+        private static int ValidateVersion(int version)
+        {
+            if (version < 1)
+                throw new BusinessException("缺少合法的版本号，无法进行并发控制", ErrorCodes.InvalidArgument);
+            return version;
         }
     }
 }

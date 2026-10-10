@@ -124,7 +124,74 @@ public sealed class OptimisticLockTests
         Assert.Equal(Codes.InvalidArgument, badVersion.Code);
     }
 
+    /// <summary>
+    /// 标签的版本号边界必须与其它资源**完全一致**：缺失/非法（&lt; 1）属于参数错误 → 4001，
+    /// 而不是让它一路走到仓储层的参数异常，最终变成 500。
+    ///
+    /// <para>对照组：分类/文章/账号/作者/专栏/站点配置都在服务层做了同样的校验，
+    /// 标签此前是唯一的缺口 —— 且 <c>OptimisticLockTests</c> 恰好没覆盖它。</para>
+    /// </summary>
+    [Fact]
+    public async Task 标签_缺失或非法版本号_应4001而不是500()
+    {
+        var token = await _api.LoginAsync("admin@example.com", "Admin@12345");
+        var tag = await CreateTagAsync(token, $"乐观锁标签-非法版本-{Guid.NewGuid():N}");
+
+        foreach (var badVersion in new[] { 0, -1 })
+        {
+            var put = await _api.CallAsync<object>(
+                HttpMethod.Put, $"/api/tags/{tag.Id}", token,
+                new { name = tag.Name, version = badVersion });
+
+            Assert.True(put.Status == HttpStatusCode.BadRequest,
+                $"版本号 {badVersion} 的更新应 400，实际 {put.Status} / code={put.Code}");
+            Assert.Equal(Codes.InvalidArgument, put.Code);
+
+            var del = await _api.CallAsync<object>(
+                HttpMethod.Delete, $"/api/tags/{tag.Id}?version={badVersion}", token);
+
+            Assert.True(del.Status == HttpStatusCode.BadRequest,
+                $"版本号 {badVersion} 的删除应 400，实际 {del.Status} / code={del.Code}");
+            Assert.Equal(Codes.InvalidArgument, del.Code);
+        }
+    }
+
+    /// <summary>标签的乐观锁正向语义：过期版本 409、正确版本可删除（回归保护）</summary>
+    [Fact]
+    public async Task 标签_过期版本应409_正确版本可删除()
+    {
+        var token = await _api.LoginAsync("admin@example.com", "Admin@12345");
+        var tag = await CreateTagAsync(token, $"乐观锁标签-过期-{Guid.NewGuid():N}");
+
+        var updated = await _api.CallAsync<TagItemDto>(
+            HttpMethod.Put, $"/api/tags/{tag.Id}", token,
+            new { name = $"{tag.Name}-改", version = tag.Version });
+
+        Assert.Equal(HttpStatusCode.OK, updated.Status);
+        Assert.Equal(tag.Version + 1, updated.Data!.Version);
+
+        var stale = await _api.CallAsync<object>(
+            HttpMethod.Delete, $"/api/tags/{tag.Id}?version={tag.Version}", token);
+        Assert.Equal(HttpStatusCode.Conflict, stale.Status);
+        Assert.Equal(Codes.ConcurrencyConflict, stale.Code);
+
+        var ok = await _api.CallAsync<object>(
+            HttpMethod.Delete, $"/api/tags/{tag.Id}?version={updated.Data.Version}", token);
+        Assert.Equal(HttpStatusCode.OK, ok.Status);
+    }
+
     // ---------------------------------------------------------------- 辅助
+
+    private async Task<TagItemDto> CreateTagAsync(string token, string name)
+    {
+        var (status, code, data, message) = await _api.CallAsync<TagItemDto>(
+            HttpMethod.Post, "/api/tags", token, new { name });
+
+        Assert.True(status == HttpStatusCode.OK && code == Codes.Ok && data is not null,
+            $"创建标签失败 status={status} code={code} message={message}");
+
+        return data!;
+    }
 
     private async Task<PostDetail> CreatePostAsync(string token, string title)
     {
@@ -161,4 +228,7 @@ public sealed class OptimisticLockTests
             version,
         });
 }
+
+/// <summary>标签响应里本文件需要用到的字段（其余字段忽略）</summary>
+public sealed record TagItemDto(Guid Id, string Name, int Version);
 
