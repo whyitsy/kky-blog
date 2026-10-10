@@ -59,8 +59,10 @@ namespace Blog.Application.Services.Author
 
             _authors.ApplyOptimisticVersion(author, version);
 
-            // 软删除。其署名文章的 AuthorId 由 EF 的 SetNull 行为置空，
-            // 文章本身保留（作者离职不应删掉他的文章）。
+            // 软删除：文章本身**保留**（作者离职不应删掉他的文章）。
+            // 注意文章行的 AuthorId 也**不会**被置空 —— 软删除发的是 UPDATE，
+            // FK 的 ON DELETE SET NULL 只在真 DELETE 时才生效；
+            // 表现为文章详情里的作者名变 null（全局查询过滤器把已软删的作者挡掉了）。
             _authors.Remove(author);
             await _uow.SaveChangesAsync(cancellationToken);
 

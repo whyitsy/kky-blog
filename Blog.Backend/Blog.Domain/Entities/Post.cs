@@ -16,10 +16,17 @@ public class Post : BaseEntity
 
     public string CoverImage { get; private set; } = string.Empty;
 
-    /// <summary>署名作者。可空，Author 删除时置空（与配置的 SetNull 删除行为对齐）</summary>
+    /// <summary>
+    /// 署名作者。可空。⚠️ Author 是**软删除**（UPDATE IsDeleted，不是 DELETE），
+    /// 因此数据库层的 ON DELETE SET NULL 不会触发，本列仍指向那条已软删的作者；
+    /// 表现为文章详情里的作者名变 null（全局查询过滤器把已软删的作者挡掉了）。
+    /// </summary>
     public Guid? AuthorId { get; private set; }
 
-    /// <summary>创建者账号。用于归属校验（谁能改这篇文章）与审计；账号删除时置空</summary>
+    /// <summary>
+    /// 创建者账号。用于归属校验（谁能改这篇文章）与审计。
+    /// 与 AuthorId 同理：账号软删除后本列**不会**被置空（FK 的 SET NULL 只在真 DELETE 时生效）。
+    /// </summary>
     public Guid? CreatedByUserId { get; private set; }
 
     public DateTimeOffset? PublishedAt { get; private set; }

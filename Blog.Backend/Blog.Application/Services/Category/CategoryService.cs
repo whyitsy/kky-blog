@@ -86,7 +86,9 @@ namespace Blog.Application.Services.Category
 
             _categories.ApplyOptimisticVersion(category, ValidateVersion(version));
 
-            // 软删除：其下文章的 CategoryId 由 SetNull 行为置空
+            // 软删除（发的是 UPDATE IsDeleted，不是 DELETE）：数据库层的 ON DELETE SET NULL
+            // **不会**触发，文章行的 CategoryId 仍指向这条已软删的分类 —— 按分类过滤照常可用，
+            // 只是查询投影里的分类名会变 null（全局查询过滤器 !IsDeleted 把分类挡掉了）。
             _categories.Remove(category);
             await _uow.SaveChangesAsync(cancellationToken);
             await InvalidateAsync(cancellationToken);

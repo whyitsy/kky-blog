@@ -4,21 +4,21 @@
     ════════════════════════════════════════════════════════════════════════
     解决方案级构建属性（放在解决方案根，自动作用于 Blog.Backend/ 下的所有项目）
 
-    为什么需要这个文件：**版本号是「整个应用」的属性，不是某个程序集的属性。**
-    之前只写在 Blog.WebApi.csproj 里，而读取它的 BuildInfoProvider 住在
-    Blog.Infrastructure —— 于是 GET /api/version 读到的是 Infrastructure 自己的版本，
-    静默回退成 "local"。写在这里就不存在"每个项目各配一份、慢慢漂移"的问题。
+    ⚠️ 这里**不是** GET /api/version 的版本号来源。
+    BuildInfoProvider（住在 Blog.Infrastructure）刻意**不读程序集元数据** ——
+    它只读环境变量 VERSION / GIT_SHA / BUILD_TIME（见 Diagnostics/BuildInfoProvider.cs），
+    取不到就回退成 "unknown"。原因是 Assembly.GetEntryAssembly() 在单元测试宿主里
+    返回的是测试运行器的程序集，那种兜底在测试里根本验证不了。
+
+    所以两个版本号是分开的：
+      · GET /api/version 的值 ← CI 用 build-arg 注入的环境变量（正式版本的唯一来源是 git tag）
+      · 下面这个 <Version>    ← 只进程序集元数据（DLL 的版本标记）
     ════════════════════════════════════════════════════════════════════════
   -->
   <PropertyGroup>
     <!--
-      本地开发的版本号兜底。**它不反映正式发布版本。**
-
-      正式版本的唯一来源是 git tag：CI 在打 tag 发布时用
-      build-arg VERSION=(tag) 注入镜像，运行期由 BuildInfoProvider
-      优先读环境变量（见 deploy/webapi.Dockerfile 与 .github/workflows/ci.yml）。
-      这里的值只在「本地 dotnet run」时可见，作用是让
-      GET /api/version 有可读输出，而不是报错或空串。
+      程序集版本号（仅元数据）。它**不反映**线上跑的版本，也不会出现在 /api/version 里；
+      保留它只是让本地构建出来的 DLL 有一个可读的版本标记，而不是 1.0.0.0。
     -->
     <Version>0.0.0-local</Version>
   </PropertyGroup>

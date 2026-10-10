@@ -332,7 +332,16 @@ static (int Code, string Message) DescribeHttpError(int statusCode) => statusCod
     _ => (ErrorCodes.InvalidArgument, "请求无法处理，请检查请求路径与参数"),
 };
 
-/// <summary>授权策略名（控制器与 Program 共用，避免魔法字符串不一致）</summary>
+/// <summary>
+/// 授权策略名。策略在 <c>AddAuthorization</c> 里注册，名字必须与控制器上的
+/// <c>[Authorize(Policy = ...)]</c> 一致。
+///
+/// <para>⚠️ <b>现状说明（别被类名误导）</b>：目前只有 <c>AuthController</c> 用了这里的常量
+/// （<see cref="Authenticated"/>）；其余控制器（Posts / Categories / Tags / Authors /
+/// Collections / Site / Users）写的是字面量 <c>"AdminOnly"</c> / <c>"ContentWriter"</c>。
+/// 因为常量值与字面量逐字相同，行为是正确的，但改名时两边不会互相提醒 ——
+/// 改策略名请记得连同字面量一起全局搜索。</para>
+/// </summary>
 internal static class AuthorizationPolicies
 {
     /// <summary>仅管理员</summary>
