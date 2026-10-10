@@ -30,6 +30,9 @@ public sealed class LogoutTokenInvalidationTests
 {
     private readonly ApiClient _api;
 
+    /// <summary>本文件创建的每个一次性账号都用同一个密码，方便重复登录做对照</summary>
+    private const string FreshAccountPassword = "Author@12345";
+
     public LogoutTokenInvalidationTests(BlogApiFixture fixture)
     {
         _api = new ApiClient(fixture.CreateClient());
@@ -105,6 +108,57 @@ public sealed class LogoutTokenInvalidationTests
             $"作废 token 访问 /readonly 应 401，实际 {status} / code={code}");
     }
 
+    /// <summary>
+    /// 通过 <c>PUT /api/users/{id}</c> 停用账号后，该账号停用前签发的 token 必须**永久**失效：
+    /// 即便账号随后被重新启用，旧 token 也不能复活。
+    ///
+    /// <para>为什么单独盯这条路径：停用有两个入口 —— 专用的
+    /// <c>POST /api/users/{id}/disable</c>（直接调 SetActive，正常）与通用的
+    /// <c>PUT /api/users/{id}</c>（早先会先经 UpdateProfile 把 IsActive 写掉，
+    /// 让随后的 SetActive 提前返回，TokenVersion 没被提升）。
+    /// 后者虽然靠认证缓存失效让账号**当场**被踢下线，但重新启用后旧 token 会重新通过校验。</para>
+    /// </summary>
+    [Fact]
+    public async Task 更新接口停用账号_重新启用后旧token仍应401()
+    {
+        var admin = await LoginAdminAsync();
+        var account = await CreateFreshAccountAsync(admin, role: "Author");
+        var token = await _api.LoginAsync(account.Email, account.Password);
+
+        // 对照：停用前 token 可用
+        var before = await _api.CallAsync<CurrentUserDto>(HttpMethod.Get, "/api/auth/me", token);
+        Assert.Equal(HttpStatusCode.OK, before.Status);
+
+        // 用通用更新接口停用（不是 /disable 端点）
+        var disabled = await _api.CallAsync<object>(
+            HttpMethod.Put, $"/api/users/{account.Id}", admin,
+            new { role = "Author", authorId = (Guid?)null, isActive = false, version = account.Version });
+
+        Assert.True(disabled.Status == HttpStatusCode.OK && disabled.Code == Codes.Ok,
+            $"停用应成功，实际 {disabled.Status}/{disabled.Code}");
+
+        var afterDisable = await _api.CallAsync<CurrentUserDto>(HttpMethod.Get, "/api/auth/me", token);
+        Assert.True(afterDisable.Status == HttpStatusCode.Unauthorized,
+            $"停用后旧 token 应 401，实际 {afterDisable.Status}（停用靠认证缓存失效当场生效）");
+
+        // 重新启用 —— 旧 token 必须**仍然**无效（TokenVersion 已经提升过）
+        var enabled = await _api.CallAsync<object>(
+            HttpMethod.Put, $"/api/users/{account.Id}", admin,
+            new { role = "Author", authorId = (Guid?)null, isActive = true, version = account.Version + 1 });
+
+        Assert.True(enabled.Status == HttpStatusCode.OK && enabled.Code == Codes.Ok,
+            $"重新启用应成功，实际 {enabled.Status}/{enabled.Code}");
+
+        var afterEnable = await _api.CallAsync<CurrentUserDto>(HttpMethod.Get, "/api/auth/me", token);
+        Assert.True(afterEnable.Status == HttpStatusCode.Unauthorized,
+            $"重新启用后，停用前签发的 token 仍应 401（作废是永久的），实际 {afterEnable.Status}");
+
+        // 对照：重新登录拿到的新 token 正常，证明账号本身可用
+        var fresh = await _api.LoginAsync(account.Email, account.Password);
+        var freshMe = await _api.CallAsync<CurrentUserDto>(HttpMethod.Get, "/api/auth/me", fresh);
+        Assert.Equal(HttpStatusCode.OK, freshMe.Status);
+    }
+
     // ---------------------------------------------------------------- 对照：合法 token 不受影响
 
     /// <summary>合法 token 访问 /readonly 必须继续正常（防止修复过度）</summary>
@@ -165,20 +219,24 @@ public sealed class LogoutTokenInvalidationTests
     /// 新建一个一次性 Author 账号并登录。
     /// **不要用种子 admin 做注销测试**：TokenVersion 的提升是永久的，会污染整个测试集合。
     /// </summary>
-    private async Task<string> LoginFreshAuthorAsync()
+    private async Task<string> LoginFreshAuthorAsync() =>
+        await _api.LoginAsync(
+            (await CreateFreshAccountAsync(await LoginAdminAsync(), "Author")).Email,
+            FreshAccountPassword);
+
+    /// <summary>新建一次性账号（role 传 Author / Admin），返回 Id/邮箱/密码/当前 version</summary>
+    private async Task<FreshAccount> CreateFreshAccountAsync(string adminToken, string role)
     {
-        var admin = await LoginAdminAsync();
-        var email = $"logout-test-{Guid.NewGuid():N}@example.com";
-        const string password = "Author@12345";
+        var email = $"token-test-{Guid.NewGuid():N}@example.com";
 
-        var (status, code, _, message) = await _api.CallAsync<object>(
-            HttpMethod.Post, "/api/users", admin,
-            new { email, password, role = "Author", authorId = (Guid?)null });
+        var (status, code, data, message) = await _api.CallAsync<UserListItemDto>(
+            HttpMethod.Post, "/api/users", adminToken,
+            new { email, password = FreshAccountPassword, role, authorId = (Guid?)null });
 
-        Assert.True(status == HttpStatusCode.OK && code == Codes.Ok,
+        Assert.True(status == HttpStatusCode.OK && code == Codes.Ok && data is not null,
             $"创建一次性测试账号失败 status={status} code={code} message={message}");
 
-        return await _api.LoginAsync(email, password);
+        return new FreshAccount(data!.Id, email, FreshAccountPassword, data.Version);
     }
 
     private async Task LogoutAsync(string token)
@@ -212,3 +270,9 @@ public sealed class LogoutTokenInvalidationTests
         return data!;
     }
 }
+
+/// <summary>本文件需要的一次性账号信息（POST /api/users 的响应子集）</summary>
+public sealed record FreshAccount(Guid Id, string Email, string Password, int Version);
+
+/// <summary>POST /api/users 响应里本文件需要用到的字段（其余字段忽略）</summary>
+public sealed record UserListItemDto(Guid Id, string Email, int Version);

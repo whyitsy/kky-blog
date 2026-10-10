@@ -69,12 +69,18 @@ namespace Blog.Domain.Entities
             IsDeleted = false;
         }
 
-        /// <summary>更新联系方式与角色归属（不动凭据）</summary>
-        public void UpdateProfile(UserRole role, Guid? authorId, bool isActive)
+        /// <summary>
+        /// 更新角色与署名归属。刻意**不动凭据，也不动启用状态**。
+        ///
+        /// <para>启用状态只允许 <see cref="SetActive"/> 写 —— 它是唯一会顺带提升
+        /// <see cref="TokenVersion"/> 的地方。若两个方法都写 IsActive，先调用的那个
+        /// 会先把值写掉，后调用的 <see cref="SetActive"/> 因「值已相等」提前返回，
+        /// 「停用即作废全部旧 token」这一步就被静默跳过了。</para>
+        /// </summary>
+        public void UpdateProfile(UserRole role, Guid? authorId)
         {
             Role = role;
             AuthorId = authorId;
-            IsActive = isActive;
         }
 
         /// <summary>重置密码：同时提升 TokenVersion，使旧 token 立即失效</summary>

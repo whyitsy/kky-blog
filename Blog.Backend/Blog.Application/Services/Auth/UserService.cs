@@ -84,9 +84,11 @@ namespace Blog.Application.Services.Auth
 
             _users.ApplyOptimisticVersion(user, ValidateVersion(request.Version));
 
-            // 通过领域方法变更：SetActive(false) 会顺带提升 TokenVersion（立即踢下线）
-            user.UpdateProfile(role, request.AuthorId, request.IsActive);
+            // 启用状态必须走 SetActive：它是唯一会提升 TokenVersion 的地方
+            // （停用即作废该账号全部旧 token）。**不能让 UpdateProfile 也写 IsActive** ——
+            // 那样先写进去，SetActive 就会因「值已相等」提前返回，作废被静默跳过。
             user.SetActive(request.IsActive);
+            user.UpdateProfile(role, request.AuthorId);
 
             await _uow.SaveChangesAsync(cancellationToken);
 
