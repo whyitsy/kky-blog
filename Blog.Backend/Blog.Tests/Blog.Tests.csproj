@@ -6,11 +6,12 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <!--
-      xUnit v3 的测试工程需要入口点，但**不能**用 SDK 自动生成的那个：
+      测试工程需要自己的入口点，但**不能**用 SDK 自动生成的那个：
       它会与 Blog.WebApi 顶层语句生成的 Program 同名，使
       WebApplicationFactory<Program> 解析到错误的类型。因此改为：
         - 关掉自动生成（GenerateProgramFile=false）
         - 由 TestEntryPoint.cs 提供自己的 Main
+      （与 xUnit 版本无关：当前引用的是 xunit 2.9.3。）
     -->
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
