@@ -159,6 +159,62 @@ public sealed class LogoutTokenInvalidationTests
         Assert.Equal(HttpStatusCode.OK, freshMe.Status);
     }
 
+    /// <summary>
+    /// 被作废的管理员 token 不能再看到未发布专栏。
+    ///
+    /// <para>这两条专栏读接口是**匿名可访问**的，因此不走 [Authorize]；
+    /// 早先它们用 <c>User.IsInRole(...)</c>（读 JWT claim，且不校验 TokenVersion）
+    /// 判断管理员，于是「已注销 / 已停用但尚未过期」的 Admin token 仍被当作管理员，
+    /// 能列出未发布专栏、也能读到未发布专栏详情。
+    /// 修法是改用 <c>ICurrentUser</c>（即身份解析结果）。</para>
+    /// </summary>
+    [Fact]
+    public async Task 注销后_管理员旧token_看不到未发布专栏()
+    {
+        var seedAdmin = await LoginAdminAsync();
+
+        // 造一个未发布专栏（slug 需匹配后端的 ^[a-z0-9]+(?:-[a-z0-9]+)*$）
+        var slug = $"hidden-{Guid.NewGuid():N}";
+        var created = await _api.CallAsync<CollectionListItemDto>(
+            HttpMethod.Post, "/api/collections", seedAdmin,
+            new
+            {
+                title = "未发布专栏（失效测试）",
+                slug,
+                description = (string?)null,
+                coverImage = (string?)null,
+                sortOrder = 0,
+                isPublished = false,
+            });
+        Assert.True(created.Status == HttpStatusCode.OK && created.Code == Codes.Ok,
+            $"创建未发布专栏失败 status={created.Status} code={created.Code} {created.Message}");
+
+        // 一次性 **Admin** 账号（不动种子 admin，理由见类注释）
+        var account = await CreateFreshAccountAsync(seedAdmin, role: "Admin");
+        var token = await _api.LoginAsync(account.Email, account.Password);
+
+        // 对照：token 有效时它确实是「管理员视角」
+        var before = await _api.CallAsync<List<CollectionListItemDto>>(
+            HttpMethod.Get, "/api/collections?includeUnpublished=true", token);
+        Assert.Equal(HttpStatusCode.OK, before.Status);
+        Assert.Contains(before.Data!, c => c.Slug == slug && !c.IsPublished);
+
+        await LogoutAsync(token);
+
+        // 作废之后：列表接口应 403（这是「权限不足」，不是「必须登录」）
+        var after = await _api.CallAsync<List<CollectionListItemDto>>(
+            HttpMethod.Get, "/api/collections?includeUnpublished=true", token);
+        Assert.True(after.Status == HttpStatusCode.Forbidden,
+            $"作废的管理员 token 不应看到未发布专栏，实际 {after.Status} / code={after.Code}");
+        Assert.Equal(Codes.Forbidden, after.Code);
+
+        // 详情接口：未发布专栏对外应表现为不存在（404），而不是泄露内容
+        var detail = await _api.CallAsync<CollectionListItemDto>(
+            HttpMethod.Get, $"/api/collections/{slug}", token);
+        Assert.True(detail.Status == HttpStatusCode.NotFound,
+            $"未发布专栏详情对作废 token 应 404，实际 {detail.Status} / code={detail.Code} / 是否拿到数据={detail.Data is not null}");
+    }
+
     // ---------------------------------------------------------------- 对照：合法 token 不受影响
 
     /// <summary>合法 token 访问 /readonly 必须继续正常（防止修复过度）</summary>
@@ -276,3 +332,6 @@ public sealed record FreshAccount(Guid Id, string Email, string Password, int Ve
 
 /// <summary>POST /api/users 响应里本文件需要用到的字段（其余字段忽略）</summary>
 public sealed record UserListItemDto(Guid Id, string Email, int Version);
+
+/// <summary>专栏列表项里本文件需要用到的字段（POST 与 GET 共用）</summary>
+public sealed record CollectionListItemDto(Guid Id, string Title, string Slug, bool IsPublished, int Version);
