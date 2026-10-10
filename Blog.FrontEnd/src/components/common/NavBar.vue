@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useSearchStore, useThemeStore } from '@/stores/app'
 import { useSiteStore } from '@/stores/site'
+import { DEFAULT_SITE_NAME } from '@/utils/site'
 import SiteLogo from '@/components/common/SiteLogo.vue'
 
 const route = useRoute()
@@ -45,7 +46,7 @@ const isActive = (item: NavItem) =>
     <div class="navbar-inner container">
       <RouterLink to="/" class="logo">
         <SiteLogo :size="32" />
-        <span class="logo-name">{{ site.config?.siteName ?? "kky's blog" }}</span>
+        <span class="logo-name">{{ site.config?.siteName || DEFAULT_SITE_NAME }}</span>
       </RouterLink>
 
       <nav class="nav-links">

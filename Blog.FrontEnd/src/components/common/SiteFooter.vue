@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useSiteStore } from '@/stores/site'
+import { DEFAULT_SITE_NAME } from '@/utils/site'
 import SiteLogo from '@/components/common/SiteLogo.vue'
 
 const site = useSiteStore()
@@ -34,7 +35,7 @@ function formatViews(n: number) {
         <div class="footer-logo">
           <!-- 页脚原来没有发光效果，用 glow=false 保持原样 -->
           <SiteLogo :size="28" :glow="false" />
-          <span class="site-name">{{ site.config?.siteName ?? "kky's blog" }}</span>
+          <span class="site-name">{{ site.config?.siteName || DEFAULT_SITE_NAME }}</span>
         </div>
         <p class="copyright">© {{ year }} kky · 记录代码与生活</p>
       </div>

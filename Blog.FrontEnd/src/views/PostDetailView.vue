@@ -4,11 +4,14 @@ import { RouterLink, useRoute } from 'vue-router'
 import { getPostDetail } from '@/api/posts'
 import { isNotFoundError } from '@/api/http'
 import { renderMarkdown } from '@/utils/markdown'
+import { DEFAULT_SITE_NAME } from '@/utils/site'
+import { useSiteStore } from '@/stores/site'
 import type { PostDetailDto } from '@/types'
 import GiscusComments from '@/components/common/GiscusComments.vue'
 import PostDetailSkeleton from '@/components/skeleton/PostDetailSkeleton.vue'
 
 const route = useRoute()
+const site = useSiteStore()
 const post = ref<PostDetailDto | null>(null)
 const loading = ref(true)
 const notFound = ref(false)
@@ -34,7 +37,7 @@ async function load(id: string) {
   post.value = null
   try {
     post.value = await getPostDetail(id)
-    document.title = `${post.value.title} - kky's blog`
+    document.title = `${post.value.title} - ${site.config?.siteName || DEFAULT_SITE_NAME}`
     buildToc()
   } catch (e) {
     // 只有真正的「不存在」（业务码 4040 / 裸 404）才是 404 页；

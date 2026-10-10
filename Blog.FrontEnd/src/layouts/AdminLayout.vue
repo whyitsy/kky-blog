@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useSiteStore } from '@/stores/site'
 import { useAuthStore } from '@/stores/auth'
 import { logout as logoutApi } from '@/api/auth'
+import { DEFAULT_SITE_NAME } from '@/utils/site'
 import SiteLogo from '@/components/common/SiteLogo.vue'
 
 const route = useRoute()
@@ -60,7 +61,7 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
       <RouterLink to="/" class="admin-brand">
         <SiteLogo :size="34" />
         <span class="brand-text">
-          <strong>{{ site.config?.siteName ?? "kky's blog" }}</strong>
+          <strong>{{ site.config?.siteName || DEFAULT_SITE_NAME }}</strong>
           <em>管理后台</em>
         </span>
       </RouterLink>

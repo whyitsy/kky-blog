@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useSiteStore } from '@/stores/site'
+import { DEFAULT_SITE_NAME } from '@/utils/site'
 import SocialIcon from '@/components/common/SocialIcon.vue'
 
 const site = useSiteStore()
@@ -54,7 +55,7 @@ function scrollToList() {
 
     <div class="hero-content">
       <p class="hero-eyebrow">AURORA · BLOG</p>
-      <h1 class="hero-title gradient-text">{{ site.config?.siteName ?? "kky's blog" }}</h1>
+      <h1 class="hero-title gradient-text">{{ site.config?.siteName || DEFAULT_SITE_NAME }}</h1>
 
       <p class="hero-subtitle">
         <span v-typewriter="subtitles" class="tw-text" />

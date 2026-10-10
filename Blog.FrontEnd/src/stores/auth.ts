@@ -7,7 +7,9 @@ import type { AuthUser, LoginResponse, UserRole } from '@/types'
  *
  * 存 localStorage 的权衡：
  *   - 优点：不会自动随请求发送，因此**不引入 CSRF 问题**
- *   - 缺点：JS 可读，一旦 XSS 即被窃取 → 用「短有效期(30min)」+ CSP 补偿
+ *   - 缺点：JS 可读，一旦 XSS 即被窃取 → 靠「短有效期(30min)」+
+ *     「改密 / 停用 / 注销即作废（TokenVersion）」缓解，**没有** CSP 兜底
+ *     （nginx 只设了 nosniff / X-Frame-Options / Referrer-Policy）。
  * token 过期后 `restore()` 会清掉本地状态。
  */
 const TOKEN_KEY = 'blog-auth-token'
@@ -52,8 +54,6 @@ export const useAuthStore = defineStore('auth', {
     token: localStorage.getItem(TOKEN_KEY) ?? '',
     user: readUser(),
     expiresAt: localStorage.getItem(EXPIRES_KEY) ?? '',
-    /** 是否已向后端确认过 token 有效性（避免每次导航都请求 /me） */
-    verified: false,
     /**
      * 到期轮询的定时器 id（null = 未在轮询）。
      * 用 `number` 而不是 `NodeJS.Timeout`：这是浏览器环境，
@@ -109,7 +109,6 @@ export const useAuthStore = defineStore('auth', {
       this.token = data.token
       this.user = data.user
       this.expiresAt = data.expiresAt
-      this.verified = true
 
       localStorage.setItem(TOKEN_KEY, data.token)
       localStorage.setItem(USER_KEY, JSON.stringify(data.user))
@@ -125,7 +124,6 @@ export const useAuthStore = defineStore('auth', {
       this.token = ''
       this.user = null
       this.expiresAt = ''
-      this.verified = false
 
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
@@ -175,13 +173,18 @@ export const useAuthStore = defineStore('auth', {
         return
       }
 
+      // 重新武装到期轮询：每次刷新都是一次新的页面会话，定时器不会跨页面存活。
+      // 少了这一步，「用户停在页面不动直到过期」这条主动登出防线在刷新后就不生效了
+      // （只剩「某个请求拿到 401」的被动防线）—— 而那正是页面已经渲染出错误态之后的事。
+      // 放在 /me 之前是有意的：即使这次 /me 挂住不返回，到点也照样能登出。
+      this.scheduleExpiryWatch()
+
       try {
         const me = await getMe()
         this.user = me
         localStorage.setItem(USER_KEY, JSON.stringify(me))
-        this.verified = true
       } catch {
-        // 401（未认证/已过期/被踢下线）或其他失败：清空本地状态
+        // 401（未认证/已过期/被踢下线）或其他失败：清空本地状态（连带停掉轮询）
         this.clear()
       }
     },

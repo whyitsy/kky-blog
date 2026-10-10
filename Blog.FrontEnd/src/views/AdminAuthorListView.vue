@@ -112,7 +112,9 @@ async function onSubmit() {
         email: form.email.trim(),
         bio: form.bio,
         avatar: form.avatar,
-        version: target?.version ?? 1,
+        // 不做兜底：列表里找不到就用 undefined，后端会返回 4001「缺少合法的版本号」。
+        // 以前写的是 `?? 1` —— 那是**猜**一个版本号发出去，猜对了反而绕过乐观锁。
+        version: target?.version,
       })
       flash('已保存')
     } else {
