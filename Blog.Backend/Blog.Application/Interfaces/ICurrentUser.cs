@@ -42,20 +42,7 @@ namespace Blog.Application.Interfaces
         /// </summary>
         CredentialRejectionReason? CredentialRejection { get; }
 
+        /// <summary>是否管理员。未登录或角色不是 Admin 时为 false</summary>
         bool IsAdmin => Role == UserRole.Admin;
-
-        /// <summary>已登录、角色为 Author 或 Admin（即「能写内容的人」）</summary>
-        bool CanWriteContent => IsAuthenticated && Role is UserRole.Admin or UserRole.Author;
-
-        /// <summary>
-        /// 是否可以操作指定作者的内容：
-        /// 管理员可以操作全部；作者只能操作自己的（AuthorId 一致）。
-        /// </summary>
-        bool CanManageAuthor(Guid? targetAuthorId) =>
-            IsAdmin || (Role == UserRole.Author && AuthorId.HasValue && AuthorId == targetAuthorId);
-
-        /// <summary>是否可以操作由指定账号创建的内容</summary>
-        bool CanManageOwnedBy(Guid? createdByUserId) =>
-            IsAdmin || (IsAuthenticated && createdByUserId.HasValue && createdByUserId == UserId);
     }
 }

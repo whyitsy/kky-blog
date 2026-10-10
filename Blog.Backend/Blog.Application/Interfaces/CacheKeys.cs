@@ -62,8 +62,6 @@ namespace Blog.Application.Interfaces
         /// <summary>管理端：含未发布专栏</summary>
         public static string CollectionsAll => $"{TaxonomyPrefix}collections:v{Version}:all";
 
-        public static string CollectionDetail(string slug) => $"{TaxonomyPrefix}collection:v{Version}:{slug}";
-
         // ---------------------------------------------------------------- site
 
         public static string SiteConfig => $"{SitePrefix}config:v{Version}:-";
