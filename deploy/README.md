@@ -35,29 +35,6 @@ pgsql:
 | 支持版本 | PG **12~18**；架构 `linux/amd64`、`linux/arm64` |
 | 体积 | 约 157 MB（压缩后） |
 
-### ⚠️ 为什么曾经自建、现在不自建了
-
-本项目原先用 `deploy/postgres-zhparser.Dockerfile` 从源码编译 SCWS + zhparser
-（该文件与 `deploy/postgres-init/` 已于 2026-09-19 删除，可 `git log` 查看）。
-当时踩的坑（`libscws-dev` 不在 Debian 源、SCWS 仓库脚本名是 `acprep` 而非 `autogen.sh`、
-`Makefile.am` 里一行 Tab 缩进的 `#` 注释会让 `acprep` 失败等）都是**自建才有的成本**。
-
-**社区镜像把这些问题都解决了**，于是自建变成纯粹的重复劳动，
-还要把 439 MB 的产物单独打包上传服务器。改用它之后：
-PG 与 Redis 走同一条路径 —— 写 compose 的 `image:` 行，`docker compose pull` 即可。
-
-### ⚠️ 上游只发布大版本 tag（已知取舍）
-
-上游没有 `18.6` 这类 patch 级 tag，**只有 `12`~`18`**。所以做不到像 `redis:7.4.11-alpine`
-那样钉到 patch 位：上游重新构建 `18` 时，本地 / CI / 服务器可能拉到不同 patch 的镜像。
-这是「没有版本号约定」在依赖侧的同一个问题。
-
-要完全锁死就改用 digest：
-
-```yaml
-image: mixdeve/postgres-zhparser@sha256:<digest>
-```
-
 ### 数据卷兼容性（换镜像不会丢数据）
 
 社区镜像的 `PGDATA` 与官方镜像**完全一致**，都是 `/var/lib/postgresql/18/docker`，
