@@ -39,7 +39,16 @@ namespace Blog.Application.Interfaces
 
         public static string PostDetail(Guid id) => $"{PostsPrefix}detail:v{Version}:{id}";
 
-        public const string PostArchives = PostsPrefix + "archives:v1:-";
+        /// <summary>
+        /// 归档列表。版本段与其它键同源（<c>v{Version}</c>），**不要写死 v1**：
+        /// 写死的话，<see cref="Version"/> 提升时归档缓存不会跟着整体失效
+        /// （旧 key 无人访问、靠 TTL 自然消失），而这一点在任何日志里都看不出来。
+        ///
+        /// <para>为什么是 <c>static readonly</c> 而不是 <c>const</c>：C# 的常量插值字符串
+        /// 要求插值洞也是**字符串**常量，而 <see cref="Version"/> 是 int。
+        /// 用 readonly 才能既保住 const 般的用法，又让版本号只有一个来源。</para>
+        /// </summary>
+        public static readonly string PostArchives = $"{PostsPrefix}archives:v{Version}:-";
 
         // ---------------------------------------------------------------- taxonomy
 
