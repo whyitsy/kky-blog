@@ -5,6 +5,7 @@ import { createTag, getTags } from '@/api/tags'
 import { getCollections } from '@/api/collections'
 import { uploadFile } from '@/api/files'
 import { ACCEPT_IMAGE } from '@/utils/media'
+import { buildImportPlan } from '@/utils/markdownImport'
 import { useAuthStore } from '@/stores/auth'
 import type { CategoryDto, CollectionDto, PostDetailDto, PostPayload, TagDto } from '@/types'
 
@@ -50,6 +51,12 @@ const collections = ref<CollectionDto[]>([])
 const newCategoryName = ref('')
 const newTagName = ref('')
 const inlineError = ref('')
+
+// .md 导入
+const MD_IMPORT_MAX_BYTES = 5 * 1024 * 1024
+const mdInput = ref<HTMLInputElement | null>(null)
+const importingMd = ref(false)
+const importNotice = ref('')
 
 const wordCount = computed(() => content.value.length)
 const readMinutes = computed(() => Math.max(1, Math.round(wordCount.value / 400)))
@@ -171,6 +178,111 @@ function toggleCollection(id: string) {
     selectedCollectionIds.value = selectedCollectionIds.value.filter((c) => c !== id)
   } else {
     selectedCollectionIds.value = [...selectedCollectionIds.value, id]
+  }
+}
+
+function pickMarkdown() {
+  mdInput.value?.click()
+}
+
+async function onPickMarkdown(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // 允许连续选择同一个文件
+  if (!file) return
+
+  inlineError.value = ''
+  importNotice.value = ''
+
+  if (!/\.(md|markdown)$/i.test(file.name)) {
+    inlineError.value = '请选择 .md / .markdown 文件'
+    return
+  }
+  if (file.size > MD_IMPORT_MAX_BYTES) {
+    inlineError.value = '文件超过 5MB，请拆分后再导入'
+    return
+  }
+
+  importingMd.value = true
+  try {
+    const text = await file.text()
+    const plan = buildImportPlan({
+      fileName: file.name,
+      text,
+      categories: categories.value,
+      tags: tags.value,
+    })
+
+    if (
+      props.mode === 'edit' &&
+      content.value.trim() &&
+      !window.confirm('导入会覆盖当前正文（以及文件里写明的标题、摘要等），继续？')
+    ) {
+      return
+    }
+
+    const notices: string[] = []
+
+    // 管理员：front matter 里写了但库里不存在的标签/分类，自动创建；作者没有权限，忽略即可
+    const createdTags: TagDto[] = []
+    const createdCategories: CategoryDto[] = []
+    if (auth.isAdmin && plan.missingTags.length > 0) {
+      for (const name of plan.missingTags) {
+        try {
+          createdTags.push(await createTag(name))
+        } catch {
+          notices.push(`跳过标签「${name}」`)
+        }
+      }
+      if (createdTags.length > 0) {
+        tags.value = [...tags.value, ...createdTags].sort((a, b) => a.name.localeCompare(b.name))
+        notices.push(`新建标签 ${createdTags.length} 个`)
+      }
+    } else if (plan.missingTags.length > 0) {
+      notices.push(`忽略不存在的标签：${plan.missingTags.join('、')}`)
+    }
+
+    if (auth.isAdmin && plan.missingCategories.length > 0) {
+      for (const name of plan.missingCategories) {
+        try {
+          createdCategories.push(await createCategory(name))
+        } catch {
+          notices.push(`跳过分类「${name}」`)
+        }
+      }
+      if (createdCategories.length > 0) {
+        categories.value = [...categories.value, ...createdCategories].sort((a, b) => a.name.localeCompare(b.name))
+        notices.push(`新建分类 ${createdCategories.length} 个`)
+      }
+    } else if (plan.missingCategories.length > 0) {
+      notices.push(`忽略不存在的分类：${plan.missingCategories.join('、')}`)
+    }
+
+    if (plan.title !== undefined) title.value = plan.title
+    if (plan.summary !== undefined) summary.value = plan.summary
+    content.value = plan.content
+    if (plan.coverImage !== undefined) coverImage.value = plan.coverImage
+    if (plan.publish !== undefined) publish.value = plan.publish
+
+    if (plan.tagIds !== undefined) {
+      selectedTagIds.value = [...new Set([...plan.tagIds, ...createdTags.map((tag) => tag.id)])]
+      if (plan.tagIds.length > 0) notices.push(`匹配标签 ${plan.tagIds.length} 个`)
+    }
+
+    if (plan.categoryId !== undefined) {
+      categoryId.value = plan.categoryId
+      notices.push('已匹配分类')
+    } else if (createdCategories.length > 0) {
+      categoryId.value = createdCategories[0]!.id
+      notices.push('已选择新建的分类')
+    }
+
+    if (!plan.content.trim()) notices.push('文件里没有正文内容')
+    importNotice.value = notices.length > 0 ? `已导入：${notices.join('；')}` : '已导入正文'
+  } catch (e) {
+    inlineError.value = e instanceof Error ? `Markdown 导入失败：${e.message}` : 'Markdown 导入失败'
+  } finally {
+    importingMd.value = false
   }
 }
 
@@ -313,12 +425,23 @@ function submit() {
       </div>
     </div>
 
-    <label class="field">
-      <span class="field-label">正文 <em>*</em> · Markdown · 约 {{ readMinutes }} 分钟阅读</span>
+    <div class="field">
+      <div class="field-head">
+        <span class="field-label">正文 <em>*</em> · Markdown · 约 {{ readMinutes }} 分钟阅读</span>
+        <button type="button" class="btn-mini" :disabled="importingMd" @click="pickMarkdown">
+          {{ importingMd ? '读取中...' : '从 .md 导入' }}
+        </button>
+        <input ref="mdInput" type="file" accept=".md,.markdown,text/markdown" hidden @change="onPickMarkdown" />
+      </div>
       <textarea v-model="content" rows="14" placeholder="支持 Markdown：## 标题、- 列表、```代码块``` 等" />
       <small v-if="contentError" class="err">{{ contentError }}</small>
       <small v-else class="hint">{{ wordCount }} 字</small>
-    </label>
+      <small class="hint">
+        支持 front matter：title / summary / description / tags / category / cover / draft；
+        管理员导入时会自动创建缺失的标签与分类
+      </small>
+      <small v-if="importNotice" class="hint import-notice">{{ importNotice }}</small>
+    </div>
 
     <label v-if="mode === 'create'" class="field switch-field">
       <input v-model="publish" type="checkbox" />
@@ -370,6 +493,15 @@ function submit() {
 .field-label em {
   color: #e35151;
   font-style: normal;
+}
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.import-notice {
+  color: var(--brand-500);
 }
 .field input,
 .field textarea,
