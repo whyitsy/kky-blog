@@ -304,18 +304,18 @@ function submit() {
 </script>
 
 <template>
-  <form class="post-editor card" @submit.prevent="submit">
+  <form class="post-editor panel panel-stack" @submit.prevent="submit">
     <header class="pe-head">
       <h2>{{ mode === 'create' ? '新建文章' : '编辑文章' }}</h2>
-      <p v-if="mode === 'edit' && initial" class="pe-meta">
+      <p v-if="mode === 'edit' && initial" class="hint pe-meta">
         版本 v{{ initial.version }} · 最近更新 {{ initial.updatedAt?.replace('T', ' ').slice(0, 16) }}
       </p>
     </header>
 
     <label class="field">
-      <span class="field-label">标题 <em>*</em></span>
-      <input v-model="title" type="text" maxlength="200" placeholder="给文章起一个清晰的标题" />
-      <small v-if="titleError" class="err">{{ titleError }}</small>
+      <span class="field-label">标题 <em class="required">*</em></span>
+      <input v-model="title" class="input" type="text" maxlength="200" placeholder="给文章起一个清晰的标题" />
+      <small v-if="titleError" class="hint-error">{{ titleError }}</small>
       <small v-else class="hint">{{ title.length }} / 200</small>
     </label>
 
@@ -327,6 +327,7 @@ function submit() {
            上限 200 与后端 FieldLimits.PostSummary / Posts.Summary 列宽保持一致。 -->
       <textarea
         v-model="summary"
+        class="textarea"
         rows="3"
         maxlength="200"
         placeholder="可选：留空将自动取正文前 50 字"
@@ -336,21 +337,21 @@ function submit() {
 
     <div class="field">
       <span class="field-label">封面图</span>
-      <div class="cover-row">
-        <div class="cover-preview" :class="{ empty: !coverImage }">
+      <div class="media-picker">
+        <div class="media-preview" :class="{ empty: !coverImage }">
           <img v-if="coverImage" :src="coverImage" alt="封面预览" />
           <span v-else>未设置</span>
         </div>
-        <div class="cover-actions">
-          <div class="cover-buttons">
-            <label class="btn-mini">
+        <div class="media-picker-actions">
+          <div class="media-picker-buttons">
+            <label class="btn btn-sm">
               {{ uploadingCover ? '上传中...' : coverImage ? '更换封面' : '上传封面' }}
               <input type="file" :accept="ACCEPT_IMAGE" hidden :disabled="uploadingCover" @change="onPickCover" />
             </label>
             <button
               v-if="coverImage"
               type="button"
-              class="btn-mini ghost"
+              class="btn btn-sm btn-ghost"
               :disabled="uploadingCover"
               @click="coverImage = ''"
             >
@@ -365,7 +366,7 @@ function submit() {
     <div class="row">
       <label class="field">
         <span class="field-label">分类</span>
-        <select v-model="categoryId">
+        <select v-model="categoryId" class="select">
           <option :value="null">未分类</option>
           <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
@@ -373,53 +374,53 @@ function submit() {
 
       <div v-if="canManageTaxonomy" class="field">
         <span class="field-label">快速新建分类</span>
-        <div class="inline-add">
-          <input v-model="newCategoryName" type="text" placeholder="分类名" @keyup.enter="addCategory" />
-          <button type="button" class="btn-mini" :disabled="!newCategoryName.trim()" @click="addCategory">添加</button>
+        <div class="form-actions">
+          <input v-model="newCategoryName" class="input" type="text" placeholder="分类名" @keyup.enter="addCategory" />
+          <button type="button" class="btn btn-sm" :disabled="!newCategoryName.trim()" @click="addCategory">添加</button>
         </div>
       </div>
     </div>
 
     <div class="field">
       <span class="field-label">标签（多选）</span>
-      <div class="tag-pool">
+      <div class="chip-pool">
         <button
           v-for="t in tags"
           :key="t.id"
           type="button"
-          class="tag-chip"
+          class="chip"
           :class="{ active: selectedTagIds.includes(t.id) }"
           @click="toggleTag(t.id)"
         >
           {{ t.name }}
         </button>
-        <span v-if="!tags.length" class="empty">
+        <span v-if="!tags.length" class="hint">
           {{ canManageTaxonomy ? '还没有标签，下方新建' : '还没有标签，请联系管理员创建' }}
         </span>
       </div>
       <!-- 与「快速新建分类」保持一致的可见标签，避免只有占位符导致的可发现性问题 -->
       <div v-if="canManageTaxonomy" class="inline-add">
-        <span class="inline-add-label">快速新建标签</span>
-        <input v-model="newTagName" type="text" placeholder="新标签名" @keyup.enter="addTag" />
-        <button type="button" class="btn-mini" :disabled="!newTagName.trim()" @click="addTag">添加</button>
+        <span class="hint">快速新建标签</span>
+        <input v-model="newTagName" class="input" type="text" placeholder="新标签名" @keyup.enter="addTag" />
+        <button type="button" class="btn btn-sm" :disabled="!newTagName.trim()" @click="addTag">添加</button>
       </div>
     </div>
 
     <!-- 专栏（多选）：一篇文章可属于多个专栏。专栏是内容组织者，作者也可挂载 -->
     <div class="field">
       <span class="field-label">所属专栏（可多选）</span>
-      <div class="tag-pool">
+      <div class="chip-pool">
         <button
           v-for="c in collections"
           :key="c.id"
           type="button"
-          class="tag-chip"
+          class="chip"
           :class="{ active: selectedCollectionIds.includes(c.id) }"
           @click="toggleCollection(c.id)"
         >
           {{ c.title }}
         </button>
-        <span v-if="!collections.length" class="empty">
+        <span v-if="!collections.length" class="hint">
           还没有专栏，请管理员在「专栏管理」中创建
         </span>
       </div>
@@ -427,32 +428,32 @@ function submit() {
 
     <div class="field">
       <div class="field-head">
-        <span class="field-label">正文 <em>*</em> · Markdown · 约 {{ readMinutes }} 分钟阅读</span>
-        <button type="button" class="btn-mini" :disabled="importingMd" @click="pickMarkdown">
+        <span class="field-label">正文 <em class="required">*</em> · Markdown · 约 {{ readMinutes }} 分钟阅读</span>
+        <button type="button" class="btn btn-sm" :disabled="importingMd" @click="pickMarkdown">
           {{ importingMd ? '读取中...' : '从 .md 导入' }}
         </button>
         <input ref="mdInput" type="file" accept=".md,.markdown,text/markdown" hidden @change="onPickMarkdown" />
       </div>
-      <textarea v-model="content" rows="14" placeholder="支持 Markdown：## 标题、- 列表、```代码块``` 等" />
-      <small v-if="contentError" class="err">{{ contentError }}</small>
+      <textarea v-model="content" class="textarea content-input" rows="14" placeholder="支持 Markdown：## 标题、- 列表、```代码块``` 等" />
+      <small v-if="contentError" class="hint-error">{{ contentError }}</small>
       <small v-else class="hint">{{ wordCount }} 字</small>
       <small class="hint">
         支持 front matter：title / summary / description / tags / category / cover / draft；
         管理员导入时会自动创建缺失的标签与分类
       </small>
-      <small v-if="importNotice" class="hint import-notice">{{ importNotice }}</small>
+      <small v-if="importNotice" class="hint">{{ importNotice }}</small>
     </div>
 
-    <label v-if="mode === 'create'" class="field switch-field">
+    <label v-if="mode === 'create'" class="switch">
       <input v-model="publish" type="checkbox" />
-        <span>创建后立即发布（未勾选则为草稿）</span>
-      </label>
+      <span>创建后立即发布（未勾选则为草稿）</span>
+    </label>
 
-    <p v-if="inlineError" class="inline-err">{{ inlineError }}</p>
+    <p v-if="inlineError" class="banner banner-error">{{ inlineError }}</p>
 
-    <footer class="pe-actions">
-      <button type="button" class="btn-ghost" :disabled="saving" @click="emit('cancel')">取消</button>
-      <button type="submit" class="btn-primary" :disabled="!formValid || saving || uploadingCover">
+    <footer class="panel-actions">
+      <button type="button" class="btn btn-ghost" :disabled="saving" @click="emit('cancel')">取消</button>
+      <button type="submit" class="btn btn-primary" :disabled="!formValid || saving || uploadingCover">
         {{ saving ? '保存中...' : mode === 'create' ? '创建' : '保存修改' }}
       </button>
     </footer>
@@ -461,78 +462,29 @@ function submit() {
 
 <style scoped>
 .post-editor {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6);
   max-width: 880px;
   margin: 0 auto;
 }
 
 .pe-head h2 {
   font: var(--text-h2);
-  color: var(--text-strong);
-  margin: 0;
-}
-.pe-meta {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  margin-top: var(--space-1);
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+.panel-actions {
+  margin-top: 0;
 }
-.field-label {
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-default);
-}
-.field-label em {
-  color: #e35151;
-  font-style: normal;
-}
+
 .field-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+  flex-wrap: wrap;
 }
-.import-notice {
-  color: var(--brand-500);
-}
-.field input,
-.field textarea,
-.field select {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--text-default);
-  font: var(--text-body);
-}
-.field input:focus,
-.field textarea:focus,
-.field select:focus {
-  outline: none;
-  border-color: var(--brand-500);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-500) 20%, transparent);
-}
-.field textarea {
+
+.content-input {
   font-family: var(--font-mono);
   line-height: 1.6;
-  resize: vertical;
-}
-.hint {
-  font: var(--text-caption);
-  color: var(--text-muted);
-}
-.err {
-  font: var(--text-caption);
-  color: #e35151;
 }
 
 .row {
@@ -541,146 +493,8 @@ function submit() {
   gap: var(--space-4);
 }
 @media (max-width: 640px) {
-  .row { grid-template-columns: 1fr; }
-}
-
-.inline-add {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.inline-add-label {
-  flex-shrink: 0;
-  font: var(--text-caption);
-  color: var(--text-subtle);
-  white-space: nowrap;
-}
-.btn-mini {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 30px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-default);
-  background: var(--bg-raised);
-  color: var(--text-default);
-  cursor: pointer;
-}
-.btn-mini:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-mini.ghost {
-  background: transparent;
-  color: #e35151;
-  border-color: color-mix(in srgb, #e35151 40%, transparent);
-}
-
-/* 封面：上传 + 预览。刻意不提供 URL 输入框，理由见 onPickCover 的注释 */
-.cover-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-.cover-preview {
-  width: 160px;
-  height: 90px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-.cover-preview.empty {
-  border-style: dashed;
-}
-.cover-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.cover-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.cover-buttons {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.tag-pool {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-sm);
-  min-height: 38px;
-}
-.tag-chip {
-  padding: 2px var(--space-3);
-  border: 1px solid var(--border-default);
-  border-radius: 999px;
-  background: var(--bg-raised);
-  color: var(--text-default);
-  font: var(--text-caption);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-.tag-chip:hover { border-color: var(--brand-500); }
-.tag-chip.active {
-  background: color-mix(in srgb, var(--brand-500) 15%, transparent);
-  border-color: var(--brand-500);
-  color: var(--brand-500);
-}
-.empty { color: var(--text-muted); font: var(--text-caption); padding: 4px; }
-
-.switch-field {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-2);
-}
-.switch-field input { width: auto; }
-
-.pe-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-subtle);
-}
-.btn-primary {
-  padding: var(--space-2) var(--space-5);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-  color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-ghost {
-  padding: var(--space-2) var(--space-5);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-default);
-  background: transparent;
-  color: var(--text-default);
-  cursor: pointer;
-}
-.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.inline-err {
-  color: #e35151;
-  font: var(--text-caption);
-  background: color-mix(in srgb, #e35151 8%, transparent);
-  padding: var(--space-2);
-  border-radius: var(--radius-sm);
+  .row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

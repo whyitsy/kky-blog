@@ -165,36 +165,36 @@ async function onDelete(a: AuthorDto) {
   <section class="admin-authors">
     <div class="toolbar">
       <span class="toolbar-info">共 {{ items.length }} 位作者</span>
-      <button class="btn-primary" @click="showForm ? ((showForm = false), resetForm()) : openCreate()">
+      <button class="btn btn-primary" @click="showForm ? ((showForm = false), resetForm()) : openCreate()">
         {{ showForm ? '收起' : '+ 新建作者' }}
       </button>
     </div>
 
-    <p v-if="errorMsg" class="banner err">{{ errorMsg }}</p>
-    <p v-if="okMsg" class="banner ok">{{ okMsg }}</p>
+    <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
+    <p v-if="okMsg" class="banner banner-success">{{ okMsg }}</p>
 
     <!-- 新建 / 编辑 -->
-    <form v-if="showForm" class="card panel" @submit.prevent="onSubmit">
-      <h3>{{ editingId ? '编辑作者' : '新建作者' }}</h3>
+    <form v-if="showForm" class="panel panel-stack" @submit.prevent="onSubmit">
+      <h3 class="panel-title">{{ editingId ? '编辑作者' : '新建作者' }}</h3>
       <p class="panel-hint">
         作者是**文章的署名对象**（内容层），不是登录账号。给作者开通登录请到「账号管理」。
       </p>
 
-      <div class="avatar-row">
-        <div class="avatar-box">
+      <div class="media-picker">
+        <div class="media-preview round">
           <img v-if="form.avatar" :src="form.avatar" alt="头像" />
-          <span v-else class="avatar-fallback">{{ form.name.slice(0, 1) || '?' }}</span>
+          <span v-else class="media-fallback initial">{{ form.name.slice(0, 1) || '?' }}</span>
         </div>
-        <div class="avatar-actions">
-          <div class="avatar-buttons">
-            <label class="btn-ghost">
+        <div class="media-picker-actions">
+          <div class="media-picker-buttons">
+            <label class="btn btn-ghost">
               {{ uploading ? '上传中...' : form.avatar ? '更换头像' : '上传头像' }}
               <input type="file" :accept="ACCEPT_IMAGE" hidden :disabled="uploading" @change="onPickAvatar" />
             </label>
             <button
               v-if="form.avatar"
               type="button"
-              class="btn-ghost"
+              class="btn btn-ghost"
               :disabled="uploading"
               @click="form.avatar = ''"
             >
@@ -208,7 +208,7 @@ async function onDelete(a: AuthorDto) {
         </div>
       </div>
 
-      <div class="grid">
+      <div class="form-grid-2">
         <label class="field">
           <span class="label">姓名</span>
           <input v-model="form.name" class="input" maxlength="100" placeholder="展示在文章页的作者名" />
@@ -221,49 +221,49 @@ async function onDelete(a: AuthorDto) {
 
       <label class="field">
         <span class="label">个人简介</span>
-        <textarea v-model="form.bio" class="input textarea" rows="3" maxlength="500" />
+        <textarea v-model="form.bio" class="textarea" rows="3" maxlength="500" />
       </label>
 
       <footer class="panel-actions">
-        <button type="button" class="btn-ghost" @click="((showForm = false), resetForm())">取消</button>
-        <button type="submit" class="btn-primary" :disabled="busy || uploading">
+        <button type="button" class="btn btn-ghost" @click="((showForm = false), resetForm())">取消</button>
+        <button type="submit" class="btn btn-primary" :disabled="busy || uploading">
           {{ busy ? '保存中...' : editingId ? '保存' : '创建' }}
         </button>
       </footer>
     </form>
 
-    <div v-if="loading" class="muted-block">加载中...</div>
+    <div v-if="loading" class="empty">加载中...</div>
 
-    <div v-else class="list card">
-      <div class="row head-row">
+    <div v-else class="list table">
+      <div class="table-row table-head">
         <span>作者</span>
         <span>邮箱</span>
         <span>简介</span>
         <span>版本</span>
-        <span class="right">操作</span>
+        <span class="text-right">操作</span>
       </div>
 
-      <div v-for="a in items" :key="a.id" class="row">
+      <div v-for="a in items" :key="a.id" class="table-row">
         <span class="col-author">
-          <span class="mini-avatar">
-            <img v-if="a.avatar" :src="a.avatar" :alt="a.name" />
-            <span v-else>{{ a.name.slice(0, 1) }}</span>
+          <span class="avatar avatar-fallback">
+            <img v-if="a.avatar" class="avatar-img" :src="a.avatar" :alt="a.name" />
+            <template v-else>{{ a.name.slice(0, 1) }}</template>
           </span>
           <span class="name">{{ a.name }}</span>
         </span>
         <span class="muted ellipsis">{{ a.email }}</span>
         <span class="muted ellipsis">{{ a.bio || '—' }}</span>
         <span class="muted">v{{ a.version }}</span>
-        <span class="right actions">
+        <span class="text-right row-actions">
           <button class="link" :disabled="busy" @click="openEdit(a)">编辑</button>
-          <button class="link danger" :disabled="busy" @click="onDelete(a)">删除</button>
+          <button class="link link-danger" :disabled="busy" @click="onDelete(a)">删除</button>
         </span>
       </div>
 
-      <p v-if="!items.length" class="empty-row">还没有作者</p>
+      <p v-if="!items.length" class="empty">还没有作者</p>
     </div>
 
-    <p class="foot-hint">
+    <p class="hint">
       说明：本页维护的是**署名信息**。登录账号（邮箱/密码/角色）在「账号管理」里维护，
       并通过「关联作者」把某个账号绑定到这里的作者。
     </p>
@@ -278,163 +278,17 @@ async function onDelete(a: AuthorDto) {
 }
 
 .toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
+  margin-bottom: 0;
 }
-.toolbar-info {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-}
-
-.banner {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-.banner.err {
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-}
-.banner.ok {
-  background: color-mix(in srgb, #16a34a 14%, transparent);
-  color: #16a34a;
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6);
-}
-.panel h3 {
-  font: var(--text-h3);
-  color: var(--text-strong);
-  margin: 0;
-}
-.panel-hint {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-  margin: 0;
-}
-
-.avatar-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  flex-wrap: wrap;
-}
-.avatar-box {
-  width: 72px;
-  height: 72px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--border-default);
-  background: var(--bg-raised);
-}
-.avatar-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.avatar-fallback {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--brand-500);
-}
-.avatar-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex: 1;
-  min-width: 220px;
-}
-.avatar-buttons {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-.hint {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-4);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.label {
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.input {
-  width: 100%;
-  padding: var(--space-3);
-  font: var(--text-body-sm);
-  color: var(--text-strong);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  outline: none;
-}
-.input:focus {
-  border-color: var(--brand-500);
-}
-.textarea {
-  resize: vertical;
-  font-family: inherit;
-}
-
 .panel-actions {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-}
-
-.muted-block {
-  padding: var(--space-12) 0;
-  text-align: center;
-  color: var(--text-muted);
+  margin-top: 0;
 }
 
 .list {
   overflow: hidden;
 }
-.row {
-  display: grid;
+.table-row {
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.6fr) 60px 140px;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.row:last-child {
-  border-bottom: none;
-}
-.head-row {
-  background: var(--bg-raised);
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .col-author {
@@ -443,20 +297,7 @@ async function onDelete(a: AuthorDto) {
   gap: var(--space-3);
   min-width: 0;
 }
-.mini-avatar {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--brand-500);
-  background: color-mix(in srgb, var(--brand-500) 12%, transparent);
-}
-.mini-avatar img {
+.avatar-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -469,99 +310,22 @@ async function onDelete(a: AuthorDto) {
   white-space: nowrap;
 }
 
-.muted {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-.ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.right {
-  text-align: right;
-}
-.actions {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-}
-
-.empty-row {
-  padding: var(--space-8);
-  text-align: center;
-  color: var(--text-subtle);
-  font: var(--text-body-sm);
-}
-
-.btn-primary {
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-}
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-default);
-  cursor: pointer;
-}
-.btn-primary:disabled,
-.btn-ghost:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.link {
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: 13px;
-  color: var(--brand-500);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.link.danger {
-  color: #e35151;
-}
-.link:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.foot-hint {
-  margin: 0;
-  font: var(--text-caption);
-  color: var(--text-subtle);
-  line-height: 1.8;
-}
-
 @media (max-width: 1100px) {
-  .head-row {
+  .table-head {
     display: none;
   }
-  .row {
+  .table-row {
     grid-template-columns: 1fr auto;
     gap: var(--space-2) var(--space-3);
   }
   .col-author {
     grid-column: 1 / -1;
-    font-size: 15px;
+    font: var(--text-body);
   }
-  .right {
+  .text-right {
     text-align: left;
   }
-  .actions {
+  .row-actions {
     grid-column: 1 / -1;
     justify-content: flex-start;
     padding-top: var(--space-2);

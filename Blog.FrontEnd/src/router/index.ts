@@ -29,6 +29,12 @@ const router = createRouter({
         { path: 'posts', name: 'post-list', component: () => import('@/views/PostListView.vue') },
         { path: 'collections', name: 'collections', component: () => import('@/views/CollectionListView.vue') },
         { path: 'collections/:slug', name: 'collection-detail', component: () => import('@/views/CollectionDetailView.vue') },
+        // 404 放在公开站布局内：主题化后的 404 也能带导航/页脚（主题的 not-found 页面）
+        {
+          path: ':pathMatch(.*)*',
+          name: 'not-found',
+          component: () => import('@/views/NotFoundView.vue'),
+        },
       ],
     },
 
@@ -72,8 +78,6 @@ const router = createRouter({
       ],
     },
 
-    // 404：真实的不存在页面（此前是静默重定向首页，会产生软 404）
-    { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundView.vue') },
   ],
   scrollBehavior(_to, _from, savedPosition) {
     return savedPosition ?? { top: 0 }

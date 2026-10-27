@@ -3,8 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { deleteSocialLink, getSiteConfig, getSocialLinks, saveSocialLinks, updateSiteConfig } from '@/api/site'
 import { uploadFile } from '@/api/files'
 import { ACCEPT_IMAGE } from '@/utils/media'
-import FormSkeleton from '@/components/skeleton/FormSkeleton.vue'
-import SocialIcon from '@/components/common/SocialIcon.vue'
+import FormSkeleton from '@/ui/components/skeleton/FormSkeleton.vue'
+import SocialIcon from '@/ui/components/SocialIcon.vue'
 import { useSiteStore } from '@/stores/site'
 import { SiteConfigKey } from '@/types'
 import type { SocialLinkDto } from '@/types'
@@ -258,21 +258,21 @@ onMounted(load)
 
 <template>
   <section class="admin-site">
-    <p v-if="errorMsg" class="banner err">{{ errorMsg }}</p>
+    <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
 
     <FormSkeleton v-if="loading" :fields="4" />
 
     <template v-else>
       <!-- 基本配置 -->
-      <article class="card panel">
+      <article class="panel panel-stack">
         <header class="panel-head">
-          <h2>基本配置</h2>
+          <h2 class="panel-title">基本配置</h2>
           <span class="panel-hint">首屏 Hero 与 Footer 的数据来源</span>
         </header>
 
-        <p v-if="basicMsg" class="banner ok">{{ basicMsg }}</p>
+        <p v-if="basicMsg" class="banner banner-success">{{ basicMsg }}</p>
 
-        <div class="grid-2">
+        <div class="form-grid-2">
           <label class="field">
             <span class="label">站点名称</span>
             <input v-model="basic.siteName" class="input" maxlength="50" placeholder="显示在导航栏 / 首屏大标题" />
@@ -287,21 +287,21 @@ onMounted(load)
 
         <div class="field">
           <span class="label">Logo 图片</span>
-          <div class="media-row">
-            <div class="logo-preview">
+          <div class="media-picker">
+            <div class="media-preview round logo-preview">
               <img v-if="basic.siteLogo" :src="basic.siteLogo" alt="Logo 预览" />
-              <span v-else class="logo-fallback">{{ basic.logoName || 'k' }}</span>
+              <span v-else class="media-fallback brand">{{ basic.logoName || 'k' }}</span>
             </div>
-            <div class="media-actions">
-              <div class="media-buttons">
-                <label class="btn-ghost">
+            <div class="media-picker-actions">
+              <div class="media-picker-buttons">
+                <label class="btn btn-ghost">
                   {{ uploadingLogo ? '上传中...' : basic.siteLogo ? '更换 Logo' : '上传 Logo' }}
                   <input type="file" :accept="ACCEPT_IMAGE" hidden :disabled="uploadingLogo" @change="onPickLogo" />
                 </label>
                 <button
                   v-if="basic.siteLogo"
                   type="button"
-                  class="link danger"
+                  class="link link-danger"
                   :disabled="uploadingLogo"
                   @click="basic.siteLogo = ''"
                 >
@@ -329,9 +329,9 @@ onMounted(load)
           <div class="bg-list">
             <div v-for="(bg, index) in basic.heroBackgrounds" :key="bg" class="bg-item">
               <img :src="bg" alt="背景预览" />
-              <button type="button" class="link danger" @click="removeBackground(index)">删除</button>
+              <button type="button" class="link link-danger" @click="removeBackground(index)">删除</button>
             </div>
-            <label class="bg-add">
+            <label class="media-add bg-add">
               {{ uploadingBg ? '上传中...' : '+ 上传' }}
               <input type="file" :accept="ACCEPT_IMAGE" hidden :disabled="uploadingBg" @change="onPickBackground" />
             </label>
@@ -348,23 +348,23 @@ onMounted(load)
         </label>
 
         <footer class="panel-actions">
-          <button class="btn-primary" :disabled="savingBasic || uploadingBg" @click="saveBasic">
+          <button class="btn btn-primary" :disabled="savingBasic || uploadingBg" @click="saveBasic">
             {{ savingBasic ? '保存中...' : '保存基本配置' }}
           </button>
         </footer>
       </article>
 
       <!-- 社交链接 -->
-      <article class="card panel">
+      <article class="panel panel-stack">
         <header class="panel-head">
-          <h2>社交链接</h2>
+          <h2 class="panel-title">社交链接</h2>
           <span class="panel-hint">按列表顺序展示在首屏底部，可隐藏</span>
         </header>
 
-        <p v-if="linkMsg" class="banner ok">{{ linkMsg }}</p>
+        <p v-if="linkMsg" class="banner banner-success">{{ linkMsg }}</p>
 
-        <div v-if="rows.length" class="link-list">
-          <div class="link-head">
+        <div v-if="rows.length" class="table link-table">
+          <div class="table-row table-head">
             <span>预览</span>
             <span>名称</span>
             <span>图标 key</span>
@@ -372,10 +372,10 @@ onMounted(load)
             <span>显示</span>
             <span>操作</span>
           </div>
-          <div v-for="(row, index) in rows" :key="row.id ?? `new-${index}`" class="link-row">
-            <span class="icon-cell">
+          <div v-for="(row, index) in rows" :key="row.id ?? `new-${index}`" class="table-row">
+            <span class="icon-tile">
               <SocialIcon v-if="row.icon" :icon="row.icon" :name="row.name" />
-              <span v-else class="icon-empty">?</span>
+              <span v-else class="hint">?</span>
             </span>
             <!-- maxlength 与后端 FieldLimits.SocialLinkName/Icon/Url 一致（50/50/500）：
                  这三个框以前没有任何长度限制，超长时会一路穿到数据库 -->
@@ -386,14 +386,14 @@ onMounted(load)
               <input v-model="row.isVisible" type="checkbox" />
               <span>{{ row.isVisible ? '显示' : '隐藏' }}</span>
             </label>
-            <button class="link danger" @click="markRemoved(row)">删除</button>
+            <button class="link link-danger" @click="markRemoved(row)">删除</button>
           </div>
         </div>
-        <p v-else class="muted-block small">还没有社交链接</p>
+        <p v-else class="empty">还没有社交链接</p>
 
         <footer class="panel-actions">
-          <button class="btn-ghost" @click="addRow">+ 新增一条</button>
-          <button class="btn-primary" :disabled="savingLinks" @click="saveLinks">
+          <button class="btn btn-ghost" @click="addRow">+ 新增一条</button>
+          <button class="btn btn-primary" :disabled="savingLinks" @click="saveLinks">
             {{ savingLinks ? '保存中...' : '保存社交链接' }}
           </button>
         </footer>
@@ -409,143 +409,22 @@ onMounted(load)
   gap: var(--space-5);
 }
 
-.banner {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-.banner.err {
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-}
-.banner.ok {
-  background: color-mix(in srgb, #16a34a 14%, transparent);
-  color: #16a34a;
-}
-
-.muted-block {
-  padding: var(--space-12) 0;
-  text-align: center;
-  color: var(--text-muted);
-}
-.muted-block.small {
-  padding: var(--space-6) 0;
-  font-size: 14px;
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6);
-}
-
+/* 面板内部用 .panel-stack 的 gap 控制间距，抵消 foundation 的默认外边距 */
 .panel-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
+  margin-bottom: 0;
 }
-.panel-head h2 {
-  font: var(--text-h3);
-  color: var(--text-strong);
-  margin: 0;
-}
-.panel-hint {
-  font: var(--text-caption);
-  color: var(--text-subtle);
+.panel-actions {
+  margin-top: 0;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
 .field.narrow {
   max-width: 240px;
 }
-.label {
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.input {
-  width: 100%;
-  padding: var(--space-3);
-  font: var(--text-body-sm);
-  color: var(--text-strong);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-.input:focus {
-  border-color: var(--brand-500);
-}
-.textarea {
-  resize: vertical;
-  font-family: inherit;
-}
-
-.grid-2 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-4);
-}
-
-.hint {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
 
 /* ---------- Logo 上传 ---------- */
-.media-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
 .logo-preview {
   width: 56px;
   height: 56px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 50%;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-raised);
-}
-.logo-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.logo-fallback {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  font-size: 22px;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
-}
-.media-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.media-buttons {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
 }
 
 /* ---------- 首屏背景图列表 ---------- */
@@ -575,121 +454,14 @@ onMounted(load)
   text-align: center;
   border-top: 1px solid var(--border-subtle);
 }
-.bg-add {
-  display: grid;
-  place-items: center;
-  width: 160px;
-  height: 90px;
-  border: 1px dashed var(--border-default);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: border-color var(--transition-fast), color var(--transition-fast);
-}
-.bg-add:hover {
-  border-color: var(--brand-500);
-  color: var(--brand-500);
-}
 
-/* 社交链接表 */
-.link-list {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+/* ---------- 社交链接表 ---------- */
+.link-table {
   overflow-x: auto;
 }
-.link-head,
-.link-row {
-  display: grid;
+.link-table .table-row {
   grid-template-columns: 52px 1fr 1fr 2fr 84px 64px;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
   min-width: 760px;
-}
-.link-head {
-  background: var(--bg-raised);
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.link-row {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.icon-cell {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-}
-.icon-empty {
-  font-size: 12px;
-}
-
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font: var(--text-caption);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.panel-actions {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-  padding-top: var(--space-2);
-}
-
-.btn-primary,
-.btn-ghost {
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity var(--transition-fast), border-color var(--transition-fast);
-}
-.btn-primary {
-  border: none;
-  color: #fff;
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-}
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-default);
-  background: transparent;
-  color: var(--text-default);
-}
-.btn-ghost:hover {
-  border-color: var(--border-strong);
-}
-.btn-primary:disabled,
-.btn-ghost:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.link {
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: 13px;
-  color: var(--brand-500);
-  cursor: pointer;
-}
-.link.danger {
-  color: #e35151;
+  padding: var(--space-2) var(--space-3);
 }
 </style>

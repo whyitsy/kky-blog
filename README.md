@@ -42,12 +42,13 @@
 │   ├── Blog.Tests/                # xUnit 单元 + 集成测试（连真实 PG，136 个 [Fact]/[Theory]）
 │   ├── Directory.Build.props      # 版本号（正式版本的唯一来源是 CI 注入的 git tag）
 │   └── coverage.runsettings       # 覆盖率口径（排除 EF 迁移与源生成代码）
-├── Blog.FrontEnd/                 # Vue 3 + Vite（src/ 68 个文件、约 1.1 万行）
+├── Blog.FrontEnd/                 # Vue 3 + Vite（src/ 约 1.5 万行）
 │   ├── src/api/                   # 每个后端资源一个 api 模块，统一走 http.ts
-│   ├── src/stores/                # Pinia：auth / theme+search（app.ts）/ site
-│   ├── src/views/                 # 公开站 + admin/ + me/（作者区）
+│   ├── src/stores/                # Pinia：auth / search / site
+│   ├── src/ui/                    # ★ 独立 UI 层：foundation（Token/通用类）+ 主题插件（aurora/paper）+ 切换器
+│   ├── src/views/                 # 数据控制器（公开站只组装 Page Model，视觉在 src/ui）
 │   ├── src/utils/markdown.ts      # marked + DOMPurify（XSS 防线在前端这一层）
-│   └── 参考设计规范/               # 设计交付；tokens-v2.css 与 src/styles/tokens.css 同源
+│   └── docs/主题系统设计.md        # Token 契约、主题插件接口、新增主题指南
 ├── deploy/
 │   ├── webapi.Dockerfile          # 后端镜像（多阶段，非 root，HEALTHCHECK 打 /health）
 │   ├── nginx.Dockerfile           # 前端构建 → Nginx 镜像

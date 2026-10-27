@@ -1,0 +1,242 @@
+/* ============================================================================
+   Paper · 墨纸主题 Token
+   ----------------------------------------------------------------------------
+   两种配色：ink（纸白，默认）/ dusk（墨夜）。
+   契约 Token 见 src/ui/foundation/tokens.css —— 这里必须覆盖全部契约 Token。
+   主题私有 Token 一律以 `--pp-` 开头，只允许本主题的组件消费。
+
+   设计取向：编辑部 / 文学刊物。暖纸底 + 墨字 + 暗红/橄榄点缀；
+   极小圆角（0~2px）、无霓虹、无玻璃拟态、层次靠 1px 细线与留白。
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- 纸白（默认） */
+[data-ui-theme='paper'][data-color-mode='ink'] {
+  /* 背景 */
+  --bg-canvas: #f7f3ea;
+  --bg-surface: #fcf9f2;
+  --bg-raised: #fffdf8;
+  --bg-sunken: #efe9dc;
+  --bg-invert: #1d1a15;
+  --bg-overlay: rgba(38, 31, 20, 0.52);
+
+  /* 文字：正文 #34302a 在 #f7f3ea 上约 11.6:1；次要文字也保持 ≥4.5:1 */
+  --text-strong: #1c1a16;
+  --text-default: #34302a;
+  --text-muted: #5f594d;
+  --text-subtle: #6f685b;
+  --text-disabled: #a89f8d;
+  --text-invert: #f7f3ea;
+  --text-on-brand: #fdf9ef;
+
+  /* 品牌：墨红主色 + 橄榄副色 + 赭金强调 */
+  --brand-400: #a8443a;
+  --brand-500: #8a2f28;
+  --brand-600: #6f241f;
+  --sub-400: #70713a;
+  --sub-500: #5c5d2c;
+  --sub-600: #4a4b23;
+  --accent-500: #8a5d18;
+
+  /* 渐变：主题没有渐变语言，退化为「近似单色」的墨红（给共享 primitives 用） */
+  --gradient-start: #8a2f28;
+  --gradient-mid: #7c3226;
+  --gradient-end: #6b3622;
+
+  /* 边框 */
+  --border-subtle: #e3dbc9;
+  --border-default: #cfc4ad;
+  --border-strong: #a99a7d;
+
+  /* 状态 */
+  --status-success: #3d6b3f;
+  --status-warning: #8a5a12;
+  --status-danger: #9b2b26;
+  --status-info: #31587c;
+
+  /* 字体：标题与正文用衬线，界面标签（按钮/徽章/说明）保持无衬线 */
+  --font-sans: 'Rubik', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', Georgia, serif;
+  --font-mono: 'Noto Sans Mono', 'SF Mono', 'Cascadia Code', Consolas, monospace;
+
+  /* 字号（font shorthand） */
+  --text-display: 700 60px / 1.12 var(--font-serif);
+  --text-h1: 700 42px / 1.22 var(--font-serif);
+  --text-h2: 700 28px / 1.32 var(--font-serif);
+  --text-h3: 600 21px / 1.42 var(--font-serif);
+  --text-body: 400 17px / 1.9 var(--font-serif);
+  --text-body-sm: 400 15px / 1.75 var(--font-serif);
+  --text-caption: 500 12px / 1.55 var(--font-sans);
+
+  /* 圆角：方正、几乎没有圆角 */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 1px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+
+  /* 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+
+  /* 布局尺寸 */
+  --size-prose: 720px;
+  --size-container: 1120px;
+  --size-container-wide: 1280px;
+  --size-sidebar: 300px;
+  --nav-height: 64px;
+
+  /* 效果：没有光晕、没有投影语言，层次交给细线 */
+  --shadow-sm: none;
+  --shadow-md: 0 2px 6px rgba(48, 38, 22, 0.06);
+  --shadow-lg: 0 10px 28px rgba(48, 38, 22, 0.09);
+  --glow-cyan: none;
+  --glow-purple: none;
+  --glow-pink: none;
+  --glass-bg: rgba(247, 243, 234, 0.94);
+  --glass-blur: 0px;
+
+  /* 动效 */
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+
+  /* 层级 */
+  --z-nav: 100;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+
+  /* ---------- 私有 Token（只属于 paper） ---------- */
+  --pp-sidebar-width: 244px;
+  --pp-content-max: 1200px;
+  --pp-rule: 1px solid var(--border-default);
+  --pp-rule-strong: 2px solid var(--text-strong);
+  --pp-rule-double: 3px double var(--text-strong);
+  --pp-masthead-title: var(--text-strong);
+}
+
+/* ---------------------------------------------------------------- 墨夜 */
+[data-ui-theme='paper'][data-color-mode='dusk'] {
+  /* 背景 */
+  --bg-canvas: #171512;
+  --bg-surface: #1e1b17;
+  --bg-raised: #26221c;
+  --bg-sunken: #121110;
+  --bg-invert: #efe8da;
+  --bg-overlay: rgba(8, 7, 6, 0.66);
+
+  /* 文字：正文 #d8cdb9 在 #171512 上约 12:1；次要文字 ≥4.5:1 */
+  --text-strong: #f3ecdd;
+  --text-default: #d8cdb9;
+  --text-muted: #b9ae98;
+  --text-subtle: #978c79;
+  --text-disabled: #5f5749;
+  --text-invert: #171512;
+  --text-on-brand: #171512;
+
+  /* 品牌：暖红主色 + 橄榄副色 + 赭金强调 */
+  --brand-400: #e3a294;
+  --brand-500: #d18a7a;
+  --brand-600: #b96f63;
+  --sub-400: #c2bd85;
+  --sub-500: #a9a56f;
+  --sub-600: #8f8b5a;
+  --accent-500: #d9a45f;
+
+  /* 渐变：近似单色的赭金（共享 primitives 的实心底色） */
+  --gradient-start: #cfa96b;
+  --gradient-mid: #b98f52;
+  --gradient-end: #a67c42;
+
+  /* 边框 */
+  --border-subtle: #2b2620;
+  --border-default: #3e372c;
+  --border-strong: #574d3d;
+
+  /* 状态 */
+  --status-success: #8fb884;
+  --status-warning: #d6a957;
+  --status-danger: #e08b80;
+  --status-info: #8fb3d6;
+
+  /* 字体 */
+  --font-sans: 'Rubik', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', Georgia, serif;
+  --font-mono: 'Noto Sans Mono', 'SF Mono', 'Cascadia Code', Consolas, monospace;
+
+  /* 字号 */
+  --text-display: 700 60px / 1.12 var(--font-serif);
+  --text-h1: 700 42px / 1.22 var(--font-serif);
+  --text-h2: 700 28px / 1.32 var(--font-serif);
+  --text-h3: 600 21px / 1.42 var(--font-serif);
+  --text-body: 400 17px / 1.9 var(--font-serif);
+  --text-body-sm: 400 15px / 1.75 var(--font-serif);
+  --text-caption: 500 12px / 1.55 var(--font-sans);
+
+  /* 圆角 */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 1px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+
+  /* 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+
+  /* 布局尺寸 */
+  --size-prose: 720px;
+  --size-container: 1120px;
+  --size-container-wide: 1280px;
+  --size-sidebar: 300px;
+  --nav-height: 64px;
+
+  /* 效果 */
+  --shadow-sm: none;
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.38);
+  --glow-cyan: none;
+  --glow-purple: none;
+  --glow-pink: none;
+  --glass-bg: rgba(23, 21, 18, 0.94);
+  --glass-blur: 0px;
+
+  /* 动效 */
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+
+  /* 层级 */
+  --z-nav: 100;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+
+  /* ---------- 私有 Token ---------- */
+  --pp-sidebar-width: 244px;
+  --pp-content-max: 1200px;
+  --pp-rule: 1px solid var(--border-default);
+  --pp-rule-strong: 2px solid var(--text-strong);
+  --pp-rule-double: 3px double var(--text-strong);
+  --pp-masthead-title: var(--text-strong);
+}

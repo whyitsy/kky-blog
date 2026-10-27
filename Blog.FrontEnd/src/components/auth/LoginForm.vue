@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { login } from '@/api/auth'
 import { ApiError, ErrorCode } from '@/api/http'
-import SiteLogo from '@/components/common/SiteLogo.vue'
+import { SiteLogo } from '@/ui'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -63,17 +63,15 @@ async function onSubmit() {
 
 <template>
   <div class="auth-page">
-    <div class="aurora-blobs" />
-
     <form class="auth-card card" @submit.prevent="onSubmit">
       <header class="auth-head">
         <SiteLogo :size="40" />
-        <h1>{{ title }}</h1>
-        <p>{{ subtitle }}</p>
+        <h1 class="panel-title">{{ title }}</h1>
+        <p class="hint">{{ subtitle }}</p>
       </header>
 
-      <p v-if="errorMsg" class="err-banner">{{ errorMsg }}</p>
-      <p v-else-if="notice" class="notice-banner">{{ notice }}</p>
+      <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
+      <p v-else-if="notice" class="banner banner-info">{{ notice }}</p>
 
       <label class="field">
         <span class="label">邮箱</span>
@@ -100,7 +98,7 @@ async function onSubmit() {
           />
           <button
             type="button"
-            class="pw-toggle"
+            class="link pw-toggle"
             :aria-label="showPassword ? '隐藏密码' : '显示密码'"
             @click="showPassword = !showPassword"
           >
@@ -109,7 +107,7 @@ async function onSubmit() {
         </span>
       </label>
 
-      <button type="submit" class="btn-primary" :disabled="submitting">
+      <button type="submit" class="btn btn-primary btn-block" :disabled="submitting">
         {{ submitting ? '登录中...' : '登录' }}
       </button>
 
@@ -118,7 +116,7 @@ async function onSubmit() {
       </footer>
 
       <!-- 没有注册页：账号由管理员在后台创建 -->
-      <p class="hint">
+      <p class="hint auth-note">
         没有账号？账号由管理员在「账号管理」中创建后发放。管理员与作者使用同一个登录入口。
       </p>
     </form>
@@ -127,18 +125,13 @@ async function onSubmit() {
 
 <style scoped>
 .auth-page {
-  position: relative;
   display: grid;
   place-items: center;
   min-height: 100vh;
   padding: var(--space-6);
-  overflow: hidden;
-  background: var(--bg-canvas);
 }
 
 .auth-card {
-  position: relative;
-  z-index: 2;
   width: 100%;
   max-width: 400px;
   padding: var(--space-8);
@@ -156,103 +149,18 @@ async function onSubmit() {
   margin-bottom: var(--space-2);
 }
 
-.auth-head h1 {
-  font: var(--text-h3);
-  color: var(--text-strong);
-  margin: 0;
-}
-
-.auth-head p {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-  margin: 0;
-}
-
-.err-banner {
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-  padding: var(--space-3);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-
-/* 「登录已过期」用中性提示色：它是正常的时间流逝，不是用户做错了什么 */
-.notice-banner {
-  background: color-mix(in srgb, var(--brand-500) 12%, transparent);
-  color: var(--brand-500);
-  padding: var(--space-3);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.label {
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.input {
-  width: 100%;
-  padding: var(--space-3);
-  font: var(--text-body-sm);
-  color: var(--text-strong);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-.input:focus {
-  border-color: var(--brand-500);
-}
-.input:disabled {
-  opacity: 0.6;
-}
-
 .pw-wrap {
   position: relative;
   display: block;
 }
 .pw-wrap .input {
-  padding-right: 60px;
+  padding-right: 64px;
 }
 .pw-toggle {
   position: absolute;
   top: 50%;
   right: var(--space-2);
   transform: translateY(-50%);
-  border: none;
-  background: transparent;
-  color: var(--text-subtle);
-  font: var(--text-caption);
-  cursor: pointer;
-}
-.pw-toggle:hover {
-  color: var(--brand-500);
-}
-
-.btn-primary {
-  margin-top: var(--space-2);
-  padding: var(--space-3);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-}
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .auth-foot {
@@ -260,26 +168,10 @@ async function onSubmit() {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  font: var(--text-caption);
   flex-wrap: wrap;
 }
-.muted {
-  color: var(--text-subtle);
-}
-.dot {
-  color: var(--text-disabled);
-}
-.link {
-  color: var(--brand-500);
-}
-.link:hover {
-  text-decoration: underline;
-}
 
-.hint {
-  margin: 0;
+.auth-note {
   text-align: center;
-  font: var(--text-caption);
-  color: var(--text-subtle);
 }
 </style>

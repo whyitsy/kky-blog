@@ -183,22 +183,22 @@ function isSelf(u: UserListItem) {
   <section class="admin-users">
     <div class="toolbar">
       <span class="toolbar-info">共 {{ users.length }} 个账号</span>
-      <button class="btn-primary" @click="showCreate = !showCreate">
+      <button class="btn btn-primary" @click="showCreate = !showCreate">
         {{ showCreate ? '收起' : '+ 新建账号' }}
       </button>
     </div>
 
-    <p v-if="errorMsg" class="banner err">{{ errorMsg }}</p>
-    <p v-if="okMsg" class="banner ok">{{ okMsg }}</p>
+    <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
+    <p v-if="okMsg" class="banner banner-success">{{ okMsg }}</p>
 
     <!-- 新建账号 -->
-    <form v-if="showCreate" class="card panel" @submit.prevent="onCreate">
-      <h3>新建账号</h3>
+    <form v-if="showCreate" class="panel panel-stack" @submit.prevent="onCreate">
+      <h3 class="panel-title">新建账号</h3>
       <p class="panel-hint">
         作者账号由此创建（系统不开放自助注册）。创建后把邮箱与初始密码告知作者。
       </p>
 
-      <div class="grid">
+      <div class="form-grid-2">
         <label class="field">
           <span class="label">邮箱</span>
           <input v-model="createForm.email" class="input" type="email" placeholder="author@example.com" />
@@ -217,7 +217,7 @@ function isSelf(u: UserListItem) {
 
         <label class="field">
           <span class="label">角色</span>
-          <select v-model="createForm.role" class="input">
+          <select v-model="createForm.role" class="select">
             <option value="Author">Author（内容作者）</option>
             <option value="Admin">Admin（站点管理员）</option>
           </select>
@@ -225,7 +225,7 @@ function isSelf(u: UserListItem) {
 
         <label class="field">
           <span class="label">关联作者（内容署名）</span>
-          <select v-model="createForm.authorId" class="input">
+          <select v-model="createForm.authorId" class="select">
             <option value="">不关联</option>
             <option v-for="a in authors" :key="a.id" :value="a.id">{{ a.name }}</option>
           </select>
@@ -236,31 +236,31 @@ function isSelf(u: UserListItem) {
       </div>
 
       <footer class="panel-actions">
-        <button type="button" class="btn-ghost" @click="showCreate = false">取消</button>
-        <button type="submit" class="btn-primary" :disabled="busy">创建</button>
+        <button type="button" class="btn btn-ghost" @click="showCreate = false">取消</button>
+        <button type="submit" class="btn btn-primary" :disabled="busy">创建</button>
       </footer>
     </form>
 
-    <div v-if="loading" class="muted-block">加载中...</div>
+    <div v-if="loading" class="empty">加载中...</div>
 
-    <div v-else class="list card">
-      <div class="row head-row">
+    <div v-else class="list table">
+      <div class="table-row table-head">
         <span>邮箱</span>
         <span>角色</span>
         <span>关联作者</span>
         <span>状态</span>
         <span>最近登录</span>
-        <span class="right">操作</span>
+        <span class="text-right">操作</span>
       </div>
 
-      <div v-for="u in users" :key="u.id" class="row">
+      <div v-for="u in users" :key="u.id" class="table-row">
         <template v-if="editingId === u.id">
           <span class="col-email">{{ u.email }}</span>
-          <select v-model="editForm.role" class="input mini">
+          <select v-model="editForm.role" class="select input-sm">
             <option value="Author">Author</option>
             <option value="Admin">Admin</option>
           </select>
-          <select v-model="editForm.authorId" class="input mini">
+          <select v-model="editForm.authorId" class="select input-sm">
             <option value="">不关联</option>
             <option v-for="a in authors" :key="a.id" :value="a.id">{{ a.name }}</option>
           </select>
@@ -269,34 +269,34 @@ function isSelf(u: UserListItem) {
             <span>{{ editForm.isActive ? '启用' : '停用' }}</span>
           </label>
           <span class="muted">v{{ u.version }}</span>
-          <span class="right actions">
+          <span class="text-right row-actions">
             <button class="link" :disabled="busy" @click="saveEdit(u)">保存</button>
-            <button class="link muted-link" :disabled="busy" @click="cancelEdit">取消</button>
+            <button class="link link-muted" :disabled="busy" @click="cancelEdit">取消</button>
           </span>
         </template>
 
         <template v-else>
           <span class="col-email">
             {{ u.email }}
-            <span v-if="isSelf(u)" class="self-tag">我自己</span>
+            <span v-if="isSelf(u)" class="badge badge-pill badge-brand">我自己</span>
           </span>
           <span>
-            <span class="role-badge" :class="u.role === 'Admin' ? 'admin' : 'author'">{{ u.role }}</span>
+            <span class="badge badge-pill" :class="u.role === 'Admin' ? 'badge-accent' : 'badge-brand'">{{ u.role }}</span>
           </span>
           <span class="muted">{{ authorName(u.authorId) || '—' }}</span>
           <span>
-            <span v-if="u.isActive" class="badge on">启用</span>
-            <span v-else class="badge off">已停用</span>
+            <span v-if="u.isActive" class="badge badge-pill badge-success">启用</span>
+            <span v-else class="badge badge-pill badge-danger">已停用</span>
           </span>
           <span class="muted">{{ fmt(u.lastLoginAt) }}</span>
-          <span class="right actions">
+          <span class="text-right row-actions">
             <button class="link" :disabled="busy" @click="startEdit(u)">编辑</button>
             <button class="link" :disabled="busy" @click="resetId = resetId === u.id ? null : u.id">
               重置密码
             </button>
             <button
               v-if="!isSelf(u) && u.isActive"
-              class="link danger"
+              class="link link-danger"
               :disabled="busy"
               @click="onDisable(u)"
             >
@@ -309,19 +309,19 @@ function isSelf(u: UserListItem) {
         <span v-if="resetId === u.id" class="reset-row">
           <input
             v-model="newPassword"
-            class="input mini"
+            class="input input-sm"
             type="password"
             placeholder="新密码（至少 8 位）"
             autocomplete="new-password"
           />
           <button class="link" :disabled="busy" @click="onResetPassword(u)">确认重置</button>
-          <button class="link muted-link" @click="((resetId = null), (newPassword = ''))">取消</button>
+          <button class="link link-muted" @click="((resetId = null), (newPassword = ''))">取消</button>
           <span class="hint">重置后该账号所有已签发 token 立即失效</span>
         </span>
       </div>
     </div>
 
-    <p class="foot-hint">
+    <p class="hint">
       说明：本页只管理**登录账号**。文章的署名对象（Author）是内容，属「内容层」，
       需要单独的「作者管理」页面。
     </p>
@@ -336,121 +336,17 @@ function isSelf(u: UserListItem) {
 }
 
 .toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
+  margin-bottom: 0;
 }
-.toolbar-info {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-}
-
-.banner {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-.banner.err {
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-}
-.banner.ok {
-  background: color-mix(in srgb, #16a34a 14%, transparent);
-  color: #16a34a;
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6);
-}
-.panel h3 {
-  font: var(--text-h3);
-  color: var(--text-strong);
-  margin: 0;
-}
-.panel-hint {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-  margin: 0;
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-4);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.label {
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.hint {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-
-.input {
-  width: 100%;
-  padding: var(--space-3);
-  font: var(--text-body-sm);
-  color: var(--text-strong);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  outline: none;
-}
-.input:focus {
-  border-color: var(--brand-500);
-}
-.input.mini {
-  padding: var(--space-2);
-  font-size: 13px;
-}
-
 .panel-actions {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-}
-
-.muted-block {
-  padding: var(--space-12) 0;
-  text-align: center;
-  color: var(--text-muted);
+  margin-top: 0;
 }
 
 .list {
   overflow: hidden;
 }
-.row {
-  display: grid;
+.table-row {
   grid-template-columns: minmax(0, 1.4fr) 90px 110px 80px 130px 230px;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.row:last-child {
-  border-bottom: none;
-}
-.head-row {
-  background: var(--bg-raised);
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .col-email {
@@ -464,66 +360,6 @@ function isSelf(u: UserListItem) {
   color: var(--text-strong);
   font-weight: 600;
 }
-.self-tag {
-  flex-shrink: 0;
-  font: var(--text-caption);
-  padding: 1px 6px;
-  border-radius: 999px;
-  color: var(--brand-500);
-  background: color-mix(in srgb, var(--brand-500) 14%, transparent);
-}
-
-.role-badge {
-  font: var(--text-caption);
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-.role-badge.admin {
-  color: #a855f7;
-  background: color-mix(in srgb, #a855f7 16%, transparent);
-}
-.role-badge.author {
-  color: #22c5dc;
-  background: color-mix(in srgb, #22c5dc 16%, transparent);
-}
-
-.badge {
-  font: var(--text-caption);
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-.badge.on {
-  color: #16a34a;
-  background: color-mix(in srgb, #16a34a 18%, transparent);
-}
-.badge.off {
-  color: #e35151;
-  background: color-mix(in srgb, #e35151 18%, transparent);
-}
-
-.muted {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-
-.right {
-  text-align: right;
-}
-.actions {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font: var(--text-caption);
-  color: var(--text-muted);
-  cursor: pointer;
-}
 
 .reset-row {
   grid-column: 1 / -1;
@@ -535,73 +371,22 @@ function isSelf(u: UserListItem) {
   border-top: 1px dashed var(--border-subtle);
 }
 
-.btn-primary {
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-}
-.btn-ghost {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-default);
-  cursor: pointer;
-}
-.btn-primary:disabled,
-.btn-ghost:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.link {
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: 13px;
-  color: var(--brand-500);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.link.muted-link {
-  color: var(--text-subtle);
-}
-.link.danger {
-  color: #e35151;
-}
-.link:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.foot-hint {
-  margin: 0;
-  font: var(--text-caption);
-  color: var(--text-subtle);
-  line-height: 1.8;
-}
-
 @media (max-width: 1100px) {
-  .head-row {
+  .table-head {
     display: none;
   }
-  .row {
+  .table-row {
     grid-template-columns: 1fr auto;
     gap: var(--space-2) var(--space-3);
   }
   .col-email {
     grid-column: 1 / -1;
-    font-size: 15px;
+    font: var(--text-body);
   }
-  .right {
+  .text-right {
     text-align: left;
   }
-  .actions {
+  .row-actions {
     grid-column: 1 / -1;
     justify-content: flex-start;
     padding-top: var(--space-2);

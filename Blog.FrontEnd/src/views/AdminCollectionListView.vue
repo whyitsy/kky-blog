@@ -11,7 +11,7 @@ import {
 import { getPosts } from '@/api/posts'
 import { uploadFile } from '@/api/files'
 import { ACCEPT_IMAGE } from '@/utils/media'
-import FormSkeleton from '@/components/skeleton/FormSkeleton.vue'
+import FormSkeleton from '@/ui/components/skeleton/FormSkeleton.vue'
 import type { CollectionDto, CollectionPayload, PostListItemDto } from '@/types'
 
 const items = ref<CollectionDto[]>([])
@@ -232,19 +232,19 @@ function selectedTitle(id: string) {
   <section class="admin-collections">
     <div class="toolbar">
       <span class="toolbar-info">共 {{ items.length }} 个专栏</span>
-      <button class="btn-primary" @click="showForm ? (showForm = false) : openCreate()">
+      <button class="btn btn-primary" @click="showForm ? (showForm = false) : openCreate()">
         {{ showForm ? '收起' : '+ 新建专栏' }}
       </button>
     </div>
 
-    <p v-if="errorMsg" class="banner err">{{ errorMsg }}</p>
-    <p v-if="okMsg" class="banner ok">{{ okMsg }}</p>
+    <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
+    <p v-if="okMsg" class="banner banner-success">{{ okMsg }}</p>
 
     <!-- 新建 / 编辑表单 -->
-    <form v-if="showForm" class="card panel" @submit.prevent="onSubmit">
-      <h3>{{ isEditing ? '编辑专栏' : '新建专栏' }}</h3>
+    <form v-if="showForm" class="panel panel-stack" @submit.prevent="onSubmit">
+      <h3 class="panel-title">{{ isEditing ? '编辑专栏' : '新建专栏' }}</h3>
 
-      <div class="grid">
+      <div class="form-grid-2">
         <label class="field">
           <span class="label">标题</span>
           <input
@@ -272,14 +272,14 @@ function selectedTitle(id: string) {
 
       <div class="field">
         <span class="label">封面图</span>
-        <div class="cover-row">
-          <div class="cover-preview" :class="{ empty: !form.coverImage }">
+        <div class="media-picker">
+          <div class="media-preview" :class="{ empty: !form.coverImage }">
             <img v-if="form.coverImage" :src="form.coverImage" alt="封面预览" />
             <span v-else>未设置</span>
           </div>
-          <div class="cover-actions">
-            <div class="cover-buttons">
-              <label class="btn-mini">
+          <div class="media-picker-actions">
+            <div class="media-picker-buttons">
+              <label class="btn btn-sm">
                 {{ uploadingCover ? '上传中...' : form.coverImage ? '更换封面' : '上传封面' }}
                 <input
                   type="file"
@@ -292,7 +292,7 @@ function selectedTitle(id: string) {
               <button
                 v-if="form.coverImage"
                 type="button"
-                class="btn-mini ghost"
+                class="btn btn-sm btn-ghost"
                 :disabled="uploadingCover"
                 @click="form.coverImage = ''"
               >
@@ -306,7 +306,7 @@ function selectedTitle(id: string) {
 
       <label class="field">
         <span class="label">简介</span>
-        <textarea v-model="form.description" class="input textarea" rows="2" maxlength="500" />
+        <textarea v-model="form.description" class="textarea" rows="2" maxlength="500" />
       </label>
 
       <label class="switch">
@@ -315,8 +315,8 @@ function selectedTitle(id: string) {
       </label>
 
       <footer class="panel-actions">
-        <button type="button" class="btn-ghost" @click="((showForm = false), resetForm())">取消</button>
-        <button type="submit" class="btn-primary" :disabled="busy">
+        <button type="button" class="btn btn-ghost" @click="((showForm = false), resetForm())">取消</button>
+        <button type="submit" class="btn btn-primary" :disabled="busy">
           {{ busy ? '保存中...' : isEditing ? '保存' : '创建' }}
         </button>
       </footer>
@@ -324,43 +324,43 @@ function selectedTitle(id: string) {
 
     <FormSkeleton v-if="loading" :fields="3" />
 
-    <div v-else class="list card">
-      <div class="row head-row">
+    <div v-else class="list table">
+      <div class="table-row table-head">
         <span>标题</span>
         <span>标识</span>
         <span>文章数</span>
         <span>排序</span>
         <span>状态</span>
-        <span class="right">操作</span>
+        <span class="text-right">操作</span>
       </div>
 
-      <div v-for="c in items" :key="c.id" class="row">
+      <div v-for="c in items" :key="c.id" class="table-row">
         <span class="col-title">{{ c.title }}</span>
-        <code class="slug">/{{ c.slug }}</code>
+        <code class="code slug">/{{ c.slug }}</code>
         <span class="muted">{{ c.postCount }} 篇</span>
         <span class="muted">{{ c.sortOrder }}</span>
         <span>
-          <span v-if="c.isPublished" class="badge pub">已发布</span>
-          <span v-else class="badge draft">未发布</span>
+          <span v-if="c.isPublished" class="badge badge-pill badge-success">已发布</span>
+          <span v-else class="badge badge-pill badge-warning">未发布</span>
         </span>
-        <span class="right actions">
+        <span class="text-right row-actions">
           <button class="link" :disabled="busy" @click="openManage(c)">编排文章</button>
           <button class="link" :disabled="busy" @click="openEdit(c)">编辑</button>
-          <button class="link danger" :disabled="busy" @click="onDelete(c)">删除</button>
+          <button class="link link-danger" :disabled="busy" @click="onDelete(c)">删除</button>
         </span>
       </div>
 
-      <p v-if="!items.length" class="empty-row">还没有专栏</p>
+      <p v-if="!items.length" class="empty">还没有专栏</p>
     </div>
 
     <!-- 文章编排 -->
-    <div v-if="managing" class="card panel manage">
-      <h3>编排文章 · {{ managing.title }}</h3>
+    <div v-if="managing" class="panel panel-stack">
+      <h3 class="panel-title">编排文章 · {{ managing.title }}</h3>
       <p class="hint">
         勾选属于该专栏的文章，用箭头调整**专栏内阅读顺序**。一篇文章可同时属于多个专栏。
       </p>
 
-      <div v-if="manageLoading" class="muted-block">加载中...</div>
+      <div v-if="manageLoading" class="empty">加载中...</div>
 
       <div v-else class="manage-grid">
         <div class="pane">
@@ -372,21 +372,21 @@ function selectedTitle(id: string) {
               @change="togglePost(p.id)"
             />
             <span class="opt-title">{{ p.title }}</span>
-            <span v-if="!p.publishedAt" class="badge draft">草稿</span>
+            <span v-if="!p.publishedAt" class="badge badge-pill badge-warning">草稿</span>
           </label>
           <p v-if="!allPosts.length" class="muted">还没有文章</p>
         </div>
 
         <div class="pane">
           <h4>专栏内顺序（{{ selectedIds.length }}）</h4>
-          <ol class="ordered">
+          <ol>
             <li v-for="(id, i) in selectedIds" :key="id" class="ordered-item">
-              <span class="idx">{{ i + 1 }}</span>
+              <span class="badge badge-pill badge-brand idx">{{ i + 1 }}</span>
               <span class="opt-title">{{ selectedTitle(id) }}</span>
               <span class="order-actions">
-                <button class="mini" :disabled="i === 0" @click="move(i, -1)">↑</button>
-                <button class="mini" :disabled="i === selectedIds.length - 1" @click="move(i, 1)">↓</button>
-                <button class="mini danger" @click="togglePost(id)">×</button>
+                <button class="btn btn-sm btn-icon btn-ghost" :disabled="i === 0" @click="move(i, -1)">↑</button>
+                <button class="btn btn-sm btn-icon btn-ghost" :disabled="i === selectedIds.length - 1" @click="move(i, 1)">↓</button>
+                <button class="btn btn-sm btn-icon btn-ghost" @click="togglePost(id)">×</button>
               </span>
             </li>
           </ol>
@@ -395,8 +395,8 @@ function selectedTitle(id: string) {
       </div>
 
       <footer class="panel-actions">
-        <button class="btn-ghost" @click="managing = null">关闭</button>
-        <button class="btn-primary" :disabled="busy || manageLoading" @click="saveManage">
+        <button class="btn btn-ghost" @click="managing = null">关闭</button>
+        <button class="btn btn-primary" :disabled="busy || manageLoading" @click="saveManage">
           {{ busy ? '保存中...' : '保存编排' }}
         </button>
       </footer>
@@ -410,189 +410,19 @@ function selectedTitle(id: string) {
   flex-direction: column;
   gap: var(--space-4);
 }
-
 .toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-.toolbar-info {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-}
-
-.banner {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-.banner.err {
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-}
-.banner.ok {
-  background: color-mix(in srgb, #16a34a 14%, transparent);
-  color: #16a34a;
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6);
-}
-.panel h3 {
-  font: var(--text-h3);
-  color: var(--text-strong);
-  margin: 0;
-}
-.panel h4 {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin: 0 0 var(--space-2);
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-4);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.label {
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.hint {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-
-.input {
-  width: 100%;
-  padding: var(--space-3);
-  font: var(--text-body-sm);
-  color: var(--text-strong);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  outline: none;
-}
-.input:focus {
-  border-color: var(--brand-500);
-}
-.textarea {
-  resize: vertical;
-  font-family: inherit;
-}
-
-/* 封面：上传 + 预览。刻意不提供 URL 输入框，理由见 onPickCover 的注释 */
-.cover-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-.cover-preview {
-  width: 160px;
-  height: 90px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-.cover-preview.empty {
-  border-style: dashed;
-}
-.cover-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.cover-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.cover-buttons {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-.btn-mini {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 30px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-default);
-  background: var(--bg-raised);
-  color: var(--text-default);
-  font: var(--text-caption);
-  cursor: pointer;
-}
-.btn-mini:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.btn-mini.ghost {
-  background: transparent;
-  color: #e35151;
-  border-color: color-mix(in srgb, #e35151 40%, transparent);
-}
-
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font: var(--text-caption);
-  color: var(--text-muted);
-  cursor: pointer;
+  margin-bottom: 0;
 }
 
 .panel-actions {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
+  margin-top: 0;
 }
 
 .list {
   overflow: hidden;
 }
-.row {
-  display: grid;
+.table-row {
   grid-template-columns: minmax(0, 1.3fr) 140px 80px 60px 90px 220px;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.row:last-child {
-  border-bottom: none;
-}
-.head-row {
-  background: var(--bg-raised);
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .col-title {
@@ -603,56 +433,12 @@ function selectedTitle(id: string) {
   white-space: nowrap;
 }
 .slug {
-  font-family: var(--font-mono, monospace);
-  font-size: 12px;
-  color: var(--brand-500);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.muted {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
 
-.badge {
-  font: var(--text-caption);
-  padding: 2px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-.badge.pub {
-  color: #16a34a;
-  background: color-mix(in srgb, #16a34a 18%, transparent);
-}
-.badge.draft {
-  color: #d97706;
-  background: color-mix(in srgb, #d97706 18%, transparent);
-}
-
-.right {
-  text-align: right;
-}
-.actions {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
-.empty-row {
-  padding: var(--space-8);
-  text-align: center;
-  color: var(--text-subtle);
-  font: var(--text-body-sm);
-}
-
-.muted-block {
-  padding: var(--space-8) 0;
-  text-align: center;
-  color: var(--text-muted);
-}
-
+/* 文章编排：左侧候选、右侧已选顺序 */
 .manage-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -665,6 +451,11 @@ function selectedTitle(id: string) {
   padding: var(--space-4);
   max-height: 420px;
   overflow-y: auto;
+}
+.pane h4 {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
 }
 
 .opt {
@@ -688,11 +479,6 @@ function selectedTitle(id: string) {
   color: var(--text-default);
 }
 
-.ordered {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
 .ordered-item {
   display: flex;
   align-items: center;
@@ -704,94 +490,34 @@ function selectedTitle(id: string) {
   border-bottom: none;
 }
 .idx {
-  display: grid;
-  place-items: center;
   width: 22px;
   height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
-  border-radius: 50%;
-  font: var(--text-caption);
-  color: var(--brand-500);
-  background: color-mix(in srgb, var(--brand-500) 12%, transparent);
 }
 .order-actions {
   display: flex;
   gap: var(--space-1);
 }
-.mini {
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-xs);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.mini:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.mini.danger {
-  color: #e35151;
-}
-
-.btn-primary {
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-}
-.btn-ghost {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-default);
-  cursor: pointer;
-}
-.btn-primary:disabled,
-.btn-ghost:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.link {
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: 13px;
-  color: var(--brand-500);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.link.danger {
-  color: #e35151;
-}
-.link:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 @media (max-width: 1100px) {
-  .head-row {
+  .table-head {
     display: none;
   }
-  .row {
+  .table-row {
     grid-template-columns: 1fr auto;
     gap: var(--space-2) var(--space-3);
   }
   .col-title {
     grid-column: 1 / -1;
-    font-size: 15px;
+    font: var(--text-body);
   }
-  .right {
+  .text-right {
     text-align: left;
   }
-  .actions {
+  .row-actions {
     grid-column: 1 / -1;
     justify-content: flex-start;
     padding-top: var(--space-2);

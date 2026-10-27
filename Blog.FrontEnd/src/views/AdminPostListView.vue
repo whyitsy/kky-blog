@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { deletePost, getPostDetailReadonly, getPosts, publishPost } from '@/api/posts'
-import PostListRowSkeleton from '@/components/skeleton/PostListRowSkeleton.vue'
+import PostListRowSkeleton from '@/ui/components/skeleton/PostListRowSkeleton.vue'
 import type { PagedResult, PostListItemDto } from '@/types'
 
 const PAGE_SIZE = 20
@@ -85,15 +85,15 @@ const canNext = computed(() => page.value < totalPages.value)
   <section class="admin-posts">
     <div class="toolbar">
       <span class="toolbar-info">共 {{ total }} 篇（含草稿）</span>
-      <RouterLink to="/admin/posts/new" class="btn-primary">+ 新建文章</RouterLink>
+      <RouterLink to="/admin/posts/new" class="btn btn-primary">+ 新建文章</RouterLink>
     </div>
 
-    <p v-if="errorMsg" class="err-banner">{{ errorMsg }}</p>
+    <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
 
     <PostListRowSkeleton v-if="loading" :rows="6" :columns="6" />
 
     <div v-else-if="hasAny" class="table">
-      <div class="row head-row">
+      <div class="table-row table-head">
         <span class="col-title">标题</span>
         <span class="col-cat">分类</span>
         <span class="col-tag">标签</span>
@@ -105,12 +105,12 @@ const canNext = computed(() => page.value < totalPages.value)
       <div
         v-for="p in items"
         :key="p.id"
-        class="row"
+        class="table-row"
         :class="{ expanded: expandedId === p.id }"
       >
         <span class="col-title" :data-label="'标题'" :title="p.title" @click="toggleExpand(p)">
           <span class="title-text">{{ p.title }}</span>
-          <button class="expand-btn" :aria-expanded="expandedId === p.id" @click.stop="toggleExpand(p)">
+          <button class="link expand-btn" :aria-expanded="expandedId === p.id" @click.stop="toggleExpand(p)">
             {{ expandedId === p.id ? '收起' : '详情' }}
           </button>
         </span>
@@ -123,33 +123,33 @@ const canNext = computed(() => page.value < totalPages.value)
         </span>
 
         <span class="col-status" data-label="状态">
-          <span v-if="isDraft(p)" class="badge draft">草稿</span>
-          <span v-else class="badge pub">已发布</span>
+          <span v-if="isDraft(p)" class="badge badge-pill badge-warning">草稿</span>
+          <span v-else class="badge badge-pill badge-success">已发布</span>
         </span>
 
         <span class="col-time muted" data-label="时间">
           {{ fmtDate(p.publishedAt) || '未发布' }}
         </span>
 
-        <span class="col-act" data-label="操作">
+        <span class="col-act row-actions" data-label="操作">
           <RouterLink class="link" :to="`/admin/posts/${p.id}/edit`">编辑</RouterLink>
           <button class="link" :disabled="busyId === p.id" @click="togglePublish(p)">
             {{ isDraft(p) ? '发布' : '下架' }}
           </button>
-          <button class="link danger" :disabled="busyId === p.id" @click="confirmDelete(p)">删除</button>
+          <button class="link link-danger" :disabled="busyId === p.id" @click="confirmDelete(p)">删除</button>
         </span>
       </div>
     </div>
 
     <div v-else class="empty">
       <p>还没有任何文章</p>
-      <RouterLink to="/admin/posts/new" class="btn-primary">写第一篇</RouterLink>
+      <RouterLink to="/admin/posts/new" class="btn btn-primary">写第一篇</RouterLink>
     </div>
 
     <nav v-if="hasAny && totalPages > 1" class="pager">
-      <button class="btn-ghost" :disabled="!canPrev || loading" @click="load(page - 1)">上一页</button>
+      <button class="btn btn-ghost" :disabled="!canPrev || loading" @click="load(page - 1)">上一页</button>
       <span class="pager-info">第 {{ page }} / {{ totalPages }} 页</span>
-      <button class="btn-ghost" :disabled="!canNext || loading" @click="load(page + 1)">下一页</button>
+      <button class="btn btn-ghost" :disabled="!canNext || loading" @click="load(page + 1)">下一页</button>
     </nav>
   </section>
 </template>
@@ -160,93 +160,8 @@ const canNext = computed(() => page.value < totalPages.value)
   flex-direction: column;
 }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-4);
-}
-.toolbar-info {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-}
-
-.muted {
-  color: var(--text-muted);
-  font: var(--text-caption);
-}
-
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-ghost {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-default);
-  cursor: pointer;
-}
-.btn-ghost:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.err-banner {
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  margin-bottom: var(--space-4);
-  font: var(--text-body-sm);
-}
-
-.empty {
-  padding: var(--space-12) 0;
-  text-align: center;
-  color: var(--text-muted);
-}
-.empty .btn-primary {
-  margin-top: var(--space-4);
-}
-
-.table {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.row {
-  display: grid;
+.table-row {
   grid-template-columns: minmax(0, 2fr) 1fr minmax(0, 1.4fr) 76px 132px 148px;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  align-items: center;
-  border-bottom: 1px solid var(--border-subtle);
-}
-.row:last-child {
-  border-bottom: none;
-}
-
-.head-row {
-  background: var(--bg-raised);
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .col-title {
@@ -265,109 +180,38 @@ const canNext = computed(() => page.value < totalPages.value)
 /* 展开按钮只在窄屏出现（桌面端整行信息已可见） */
 .expand-btn {
   display: none;
-  flex-shrink: 0;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-xs);
-  padding: 1px 6px;
-  font: var(--text-caption);
-  color: var(--text-muted);
-  background: transparent;
-  cursor: pointer;
 }
 
 .col-tag {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   flex-wrap: wrap;
-}
-.tag-badge {
-  font: var(--text-caption);
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--brand-500) 15%, transparent);
-  color: var(--brand-500);
-}
-
-.badge {
-  font: var(--text-caption);
-  padding: 2px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-.badge.draft {
-  background: color-mix(in srgb, #d97706 18%, transparent);
-  color: #d97706;
-}
-.badge.pub {
-  background: color-mix(in srgb, #16a34a 18%, transparent);
-  color: #16a34a;
 }
 
 .col-time {
-  font: var(--text-caption);
   white-space: nowrap;
 }
 
-.col-act {
-  display: flex;
-  /* ⚠️ align-items 不能省：「编辑」是 <RouterLink>（<a>），「发布/下架」「删除」是
-     <button>。不设时 flex 默认 stretch，<a> 的文字贴顶、而浏览器会把 <button> 的
-     内容垂直居中 —— 于是三者在同一行里视觉错位。 */
-  align-items: center;
-  gap: var(--space-3);
-  justify-content: flex-end;
-}
-.link {
-  background: none;
-  border: none;
-  padding: 0;
-  /* 显式行高：<a> 与 <button> 的 UA 默认行高不同，不统一也会错位 */
-  line-height: 1.5;
-  font-size: 13px;
-  color: var(--brand-500);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.link:hover {
-  text-decoration: underline;
-}
-.link.danger {
-  color: #e35151;
-}
-.link:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pager {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  justify-content: flex-end;
+.empty .btn {
   margin-top: var(--space-4);
-}
-.pager-info {
-  font: var(--text-caption);
-  color: var(--text-muted);
 }
 
 /* ---------- 窄屏：表格退化为带字段标签的卡片，避免「草稿 / 生活」失去上下文 ---------- */
 @media (max-width: 880px) {
-  .head-row {
+  .table-head {
     display: none;
   }
-  .row {
+  .table-row {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--space-2) var(--space-4);
     padding: var(--space-4);
-    align-items: center;
   }
   .col-title {
     grid-column: 1 / -1;
-    font-size: 15px;
+    font: var(--text-body);
   }
   .expand-btn {
-    display: inline-block;
+    display: inline;
   }
   /* 默认只显示标题 + 状态，展开后显示其余字段 */
   .col-cat,
@@ -375,19 +219,14 @@ const canNext = computed(() => page.value < totalPages.value)
   .col-time {
     display: none;
   }
-  .row.expanded .col-cat,
-  .row.expanded .col-tag,
-  .row.expanded .col-time {
+  .table-row.expanded .col-cat,
+  .table-row.expanded .col-tag,
+  .table-row.expanded .col-time {
     display: flex;
     grid-column: 1 / -1;
     align-items: center;
-    gap: var(--space-2);
-    font: var(--text-body-sm);
-  }
-  .row.expanded .col-cat,
-  .row.expanded .col-tag,
-  .row.expanded .col-time {
     justify-content: flex-start;
+    gap: var(--space-2);
   }
 
   .col-cat::before,
@@ -395,8 +234,6 @@ const canNext = computed(() => page.value < totalPages.value)
   .col-time::before {
     flex-shrink: 0;
     width: 48px;
-    font: var(--text-caption);
-    color: var(--text-subtle);
   }
   .col-cat::before {
     content: '分类';

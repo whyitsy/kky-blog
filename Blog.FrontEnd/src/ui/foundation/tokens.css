@@ -1,0 +1,124 @@
+/* ============================================================================
+   Design Token 契约 + 兜底值
+   ----------------------------------------------------------------------------
+   这里是**唯一**的 Token 清单。主题在
+   `[data-ui-theme='<id>'][data-color-mode='<mode>']` 下覆盖这些值。
+
+   `:root` 的兜底值 = aurora dark，用于主题 CSS/JS 尚未生效的极端情况
+   （正常流程由 index.html 内联脚本在首屏前写入 data-ui-theme/data-color-mode）。
+   ========================================================================== */
+
+:root {
+  /* ---------- 背景 ---------- */
+  --bg-canvas: #13141a;
+  --bg-surface: #1b1d24;
+  --bg-raised: #23262f;
+  --bg-sunken: #0e0f13;
+  --bg-invert: #171a20;
+  --bg-overlay: rgba(8, 9, 13, 0.62);
+
+  /* ---------- 文字 ---------- */
+  --text-strong: #f2f5f9;
+  --text-default: #cbdae5;
+  --text-muted: #a3a9b8;
+  --text-subtle: #8a90a0;
+  --text-disabled: #565b68;
+  --text-invert: #13141a;
+  /* 渐变/实心品牌底上的文字（与 --text-invert 区分：后者是「反色背景」上的文字） */
+  --text-on-brand: #ffffff;
+
+  /* ---------- 品牌色 ---------- */
+  --brand-400: #4fd8ea;
+  --brand-500: #22c5dc;
+  --brand-600: #0fb6d6;
+  --sub-400: #f87fb4;
+  --sub-500: #f4569d;
+  --sub-600: #db2d7e;
+  --accent-500: #7c5cff;
+
+  /* ---------- 渐变 ---------- */
+  --gradient-start: #24c6dc;
+  --gradient-mid: #5433ff;
+  --gradient-end: #ff0099;
+
+  /* ---------- 边框 ---------- */
+  --border-subtle: #2a2c36;
+  --border-default: #383b47;
+  --border-strong: #4a4e5c;
+
+  /* ---------- 状态 ---------- */
+  --status-success: #3dd68c;
+  --status-warning: #f5b544;
+  --status-danger: #f87171;
+  --status-info: #60a5fa;
+
+  /* ---------- 字体 ---------- */
+  --font-sans: 'Rubik', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', Georgia, serif;
+  --font-mono: 'Noto Sans Mono', 'SF Mono', 'Cascadia Code', Consolas, monospace;
+
+  /* ---------- 字号（font shorthand） ---------- */
+  --text-display: 700 56px / 1.15 var(--font-sans);
+  --text-h1: 700 46px / 1.2 var(--font-sans);
+  --text-h2: 700 28px / 1.3 var(--font-sans);
+  --text-h3: 600 22px / 1.35 var(--font-sans);
+  --text-body: 400 16px / 1.75 var(--font-sans);
+  --text-body-sm: 400 14px / 1.6 var(--font-sans);
+  --text-caption: 500 12px / 1.5 var(--font-sans);
+
+  /* ---------- 圆角 ---------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+
+  /* ---------- 间距 ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+
+  /* ---------- 布局尺寸 ---------- */
+  --size-prose: 720px;
+  --size-container: 1120px;
+  --size-container-wide: 1280px;
+  --size-sidebar: 300px;
+  --nav-height: 64px;
+
+  /* ---------- 页面背景装饰层（可选） ----------
+     主题可提供多层渐变/纹理，由 body 以 fixed 方式绘制；
+     默认 none（纯 token 底色），不需要纯色之外设计的主题可忽略。 */
+  --page-bg-image: none;
+
+  /* ---------- 效果 ---------- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.24);
+  --glow-cyan: 0 0 20px rgba(36, 198, 220, 0.45);
+  --glow-purple: 0 0 20px rgba(124, 92, 255, 0.45);
+  --glow-pink: 0 0 20px rgba(255, 0, 153, 0.45);
+
+  /* 玻璃拟态（导航等） */
+  --glass-bg: rgba(27, 29, 36, 0.82);
+  --glass-blur: 12px;
+
+  /* ---------- 动效 ---------- */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+
+  /* ---------- 层级 ---------- */
+  --z-nav: 100;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}

@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { logout as logoutApi } from '@/api/auth'
-import SiteLogo from '@/components/common/SiteLogo.vue'
+import { SiteLogo, ThemeSwitcher } from '@/ui'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,12 +35,16 @@ async function onLogout() {
         </RouterLink>
 
         <nav class="bar-nav">
-          <RouterLink to="/me" class="nav-link" :class="{ active: route.name === 'my-posts' }">
+          <RouterLink
+            to="/me"
+            class="console-nav-item"
+            :class="{ active: route.name === 'my-posts' }"
+          >
             我的文章
           </RouterLink>
           <RouterLink
             to="/me/profile"
-            class="nav-link"
+            class="console-nav-item"
             :class="{ active: route.name === 'my-profile' }"
           >
             个人资料
@@ -50,10 +54,12 @@ async function onLogout() {
         <div class="bar-actions">
           <span class="who">
             <span class="who-name">{{ auth.displayName }}</span>
-            <span class="who-role">{{ auth.role }}</span>
+            <span class="hint">{{ auth.role }}</span>
           </span>
-          <button class="btn-ghost" @click="router.push(homeTarget)">{{ homeLabel }}</button>
-          <button class="btn-ghost" @click="onLogout">退出登录</button>
+          <button class="btn btn-ghost btn-sm" @click="router.push(homeTarget)">
+            {{ homeLabel }}
+          </button>
+          <button class="btn btn-ghost btn-sm" @click="onLogout">退出登录</button>
         </div>
       </div>
     </header>
@@ -65,6 +71,8 @@ async function onLogout() {
         </Transition>
       </RouterView>
     </main>
+
+    <ThemeSwitcher />
   </div>
 </template>
 
@@ -74,7 +82,6 @@ async function onLogout() {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: var(--bg-canvas);
 }
 
 .author-bar {
@@ -86,7 +93,7 @@ async function onLogout() {
   display: flex;
   align-items: center;
   gap: var(--space-6);
-  max-width: 1120px;
+  max-width: var(--size-container);
   margin: 0 auto;
   padding: var(--space-3) var(--space-6);
   flex-wrap: wrap;
@@ -101,7 +108,7 @@ async function onLogout() {
 }
 
 .brand-name {
-  font-size: 15px;
+  font: var(--text-body-sm);
 }
 
 .bar-nav {
@@ -109,20 +116,8 @@ async function onLogout() {
   gap: var(--space-2);
   flex: 1;
 }
-
-.nav-link {
+.bar-nav .console-nav-item {
   padding: var(--space-2) var(--space-3);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-muted);
-  border-radius: var(--radius-sm);
-}
-.nav-link:hover {
-  color: var(--text-strong);
-}
-.nav-link.active {
-  color: var(--brand-500);
-  background: color-mix(in srgb, var(--brand-500) 12%, transparent);
 }
 
 .bar-actions {
@@ -138,32 +133,15 @@ async function onLogout() {
   line-height: 1.3;
 }
 .who-name {
-  font-size: 13px;
+  font: var(--text-body-sm);
   font-weight: 600;
   color: var(--text-strong);
-}
-.who-role {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-
-.btn-ghost {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  color: var(--text-default);
-  background: transparent;
-  cursor: pointer;
-}
-.btn-ghost:hover {
-  border-color: var(--border-strong);
 }
 
 .author-content {
   flex: 1;
   width: 100%;
-  max-width: 1120px;
+  max-width: var(--size-container);
   margin: 0 auto;
   padding: var(--space-6) var(--space-6) var(--space-16);
 }
