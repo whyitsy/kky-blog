@@ -1,0 +1,67 @@
+/* ============================================================================
+   Paper · 墨纸主题专属全局视觉
+   ----------------------------------------------------------------------------
+   只放「paper 有、其它主题没有」的全局语言，并且全部限定在
+   `[data-ui-theme='paper']` 下（所有主题的 CSS 在构建期都会被打包，必须自限）。
+
+   原则：没有渐变光斑、没有玻璃拟态。层次 = 细线 + 留白 + 字重。
+   ========================================================================== */
+
+/* 选区：淡墨红方块，不用渐变 */
+[data-ui-theme='paper'] ::selection {
+  background: color-mix(in srgb, var(--brand-500) 22%, transparent);
+  color: var(--text-strong);
+}
+
+/* 主题没有渐变文字：把共享组件里的 .gradient-text 退化为墨色实字 */
+[data-ui-theme='paper'] .gradient-text {
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  -webkit-text-fill-color: currentColor;
+  color: var(--text-strong);
+}
+
+/* 可访问性：方正的细边焦点框（与主题的 1px 线条语言一致） */
+[data-ui-theme='paper'] :is(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- 共享排版工具
+   纸张的「标尺」：页面之间共享的细线/小字样式，避免每个页面重复定义。 */
+
+/* 1px 细线 */
+[data-ui-theme='paper'] .paper-rule {
+  height: 0;
+  border: 0;
+  border-top: var(--pp-rule);
+}
+
+/* 报刊常见的双线（masthead / 页脚） */
+[data-ui-theme='paper'] .paper-rule-double {
+  height: 0;
+  border: 0;
+  border-top: var(--pp-rule-double);
+}
+
+/* 小字眉题：西文用宽字距，中文页面用短行距，交给使用方决定大小写 */
+[data-ui-theme='paper'] .paper-kicker {
+  font: var(--text-caption);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+/* 文章结束符（编辑部常用的实心小方块） */
+[data-ui-theme='paper'] .paper-endmark {
+  font: 400 12px / 1 var(--font-sans);
+  letter-spacing: 0.6em;
+  color: var(--brand-500);
+  text-align: center;
+}
+
+/* 正文里的斜体引文不引入圆角与背景，只用左侧墨线 */
+[data-ui-theme='paper'] blockquote {
+  margin: 0;
+}

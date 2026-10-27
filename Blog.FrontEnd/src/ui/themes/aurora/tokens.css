@@ -1,0 +1,148 @@
+/* ============================================================================
+   Aurora · 极光霓虹主题 Token
+   ----------------------------------------------------------------------------
+   暗色为默认配色；亮色为第二配色。Token 契约见 src/ui/foundation/tokens.css。
+   除契约 Token 外，本主题还定义了私有 Token（--hero-mask / --post-hero-mask），
+   只允许本主题的组件消费。
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- 暗色（默认） */
+[data-ui-theme='aurora'][data-color-mode='dark'] {
+  /* 背景 */
+  --bg-canvas: #13141a;
+  --bg-surface: #1b1d24;
+  --bg-raised: #23262f;
+  --bg-sunken: #0e0f13;
+  --bg-invert: #171a20;
+  --bg-overlay: rgba(8, 9, 13, 0.62);
+
+  /* 文字 */
+  --text-strong: #f2f5f9;
+  --text-default: #cbdae5;
+  --text-muted: #a3a9b8;
+  --text-subtle: #8a90a0;
+  --text-disabled: #565b68;
+  --text-invert: #13141a;
+  --text-on-brand: #ffffff;
+
+  /* 品牌色 */
+  --brand-400: #4fd8ea;
+  --brand-500: #22c5dc;
+  --brand-600: #0fb6d6;
+  --sub-400: #f87fb4;
+  --sub-500: #f4569d;
+  --sub-600: #db2d7e;
+  --accent-500: #7c5cff;
+
+  /* 渐变 */
+  --gradient-start: #24c6dc;
+  --gradient-mid: #5433ff;
+  --gradient-end: #ff0099;
+
+  /* 边框 */
+  --border-subtle: #2a2c36;
+  --border-default: #383b47;
+  --border-strong: #4a4e5c;
+
+  /* 状态 */
+  --status-success: #3dd68c;
+  --status-warning: #f5b544;
+  --status-danger: #f87171;
+  --status-info: #60a5fa;
+
+  /* 效果 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.24);
+  --glow-cyan: 0 0 20px rgba(36, 198, 220, 0.45);
+  --glow-purple: 0 0 20px rgba(124, 92, 255, 0.45);
+  --glow-pink: 0 0 20px rgba(255, 0, 153, 0.45);
+  --glass-bg: rgba(27, 29, 36, 0.82);
+  --glass-blur: 12px;
+
+  /* 私有 Token：整页背景的光晕层（避免大面积纯黑，长文/列表页也有极光氛围）
+     —— 只有本主题消费；paper 等主题保持 foundation 的 none。 */
+  --page-bg-image:
+    radial-gradient(1100px 620px at 10% -12%, rgba(36, 198, 220, 0.1), transparent 62%),
+    radial-gradient(1000px 700px at 92% -4%, rgba(124, 92, 255, 0.14), transparent 66%),
+    radial-gradient(1000px 760px at 50% 118%, rgba(255, 0, 153, 0.07), transparent 62%);
+
+  /* 私有 Token：首屏/文章头图遮罩 */
+  --hero-mask: linear-gradient(
+    180deg,
+    rgba(19, 20, 26, 0.55) 0%,
+    rgba(19, 20, 26, 0.35) 45%,
+    var(--bg-canvas) 100%
+  );
+  --post-hero-mask: linear-gradient(180deg, rgba(19, 20, 26, 0.3), var(--bg-canvas) 96%);
+}
+
+/* ---------------------------------------------------------------- 亮色 */
+[data-ui-theme='aurora'][data-color-mode='light'] {
+  /* 背景 */
+  --bg-canvas: #f1f3f9;
+  --bg-surface: #ffffff;
+  --bg-raised: #ffffff;
+  --bg-sunken: #e9edf5;
+  --bg-invert: #f2f5f9;
+  --bg-overlay: rgba(214, 219, 232, 0.66);
+
+  /* 文字 */
+  --text-strong: #171a20;
+  --text-default: #2e333d;
+  --text-muted: #535b6d;
+  --text-subtle: #6a7284;
+  --text-disabled: #a2aabe;
+  --text-invert: #ffffff;
+  --text-on-brand: #ffffff;
+
+  /* 品牌色（亮色下主色翻转为品红，副色翻转成蓝） */
+  --brand-400: #f0639f;
+  --brand-500: #e93796;
+  --brand-600: #c62a7c;
+  --sub-400: #7b8cf0;
+  --sub-500: #547ce7;
+  --sub-600: #3b5fd0;
+  --accent-500: #5433ff;
+
+  /* 渐变保持不变（设计交付的亮色方案） */
+  --gradient-start: #24c6dc;
+  --gradient-mid: #5433ff;
+  --gradient-end: #ff0099;
+
+  /* 边框 */
+  --border-subtle: #e6eaf3;
+  --border-default: #d3d9e8;
+  --border-strong: #b9c1d4;
+
+  /* 状态 */
+  --status-success: #0f9d58;
+  --status-warning: #d9800a;
+  --status-danger: #dc2626;
+  --status-info: #4166db;
+
+  /* 效果 */
+  --shadow-sm: 0 1px 2px rgba(18, 26, 48, 0.06);
+  --shadow-md: 0 8px 24px rgba(18, 26, 48, 0.1);
+  --shadow-lg: 0 16px 48px rgba(18, 26, 48, 0.14);
+  --glow-cyan: 0 0 16px rgba(36, 198, 220, 0.28);
+  --glow-purple: 0 0 16px rgba(124, 92, 255, 0.28);
+  --glow-pink: 0 0 16px rgba(255, 0, 153, 0.28);
+  --glass-bg: rgba(255, 255, 255, 0.82);
+  --glass-blur: 12px;
+
+  /* 私有 Token：整页背景的光晕层（亮色下用低饱和的极光色晕，避免大面积纯白） */
+  --page-bg-image:
+    radial-gradient(1100px 620px at 10% -12%, rgba(36, 198, 220, 0.12), transparent 62%),
+    radial-gradient(1000px 700px at 92% -4%, rgba(233, 55, 150, 0.08), transparent 66%),
+    radial-gradient(1000px 760px at 50% 118%, rgba(84, 51, 255, 0.07), transparent 62%);
+
+  /* 私有 Token：亮色下降低光晕强度，避免过曝 */
+  --hero-mask: linear-gradient(
+    180deg,
+    rgba(241, 243, 249, 0.45) 0%,
+    rgba(241, 243, 249, 0.3) 45%,
+    var(--bg-canvas) 100%
+  );
+  --post-hero-mask: linear-gradient(180deg, rgba(241, 243, 249, 0.2), var(--bg-canvas) 96%);
+}
