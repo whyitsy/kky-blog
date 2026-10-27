@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { deletePost, getPostDetailReadonly, getPosts, publishPost } from '@/api/posts'
 import { useAuthStore } from '@/stores/auth'
-import PostListRowSkeleton from '@/components/skeleton/PostListRowSkeleton.vue'
+import PostListRowSkeleton from '@/ui/components/skeleton/PostListRowSkeleton.vue'
 import type { PagedResult, PostListItemDto } from '@/types'
 
 const auth = useAuthStore()
@@ -93,8 +93,8 @@ function canNext() {
   <section class="my-posts">
     <header class="page-head">
       <div>
-        <h1>我的文章</h1>
-        <p class="muted">
+        <h1 class="panel-title">我的文章</h1>
+        <p class="hint">
           共 {{ total }} 篇，其中草稿 {{ draftCount }} 篇
           <template v-if="auth.user?.authorName">
             · 署名「{{ auth.user.authorName }}」
@@ -102,54 +102,54 @@ function canNext() {
         </p>
       </div>
       <div class="head-actions">
-        <label class="filter">
+        <label class="filter hint">
           <input v-model="onlyDrafts" type="checkbox" />
           <span>只看草稿</span>
         </label>
-        <RouterLink to="/me/posts/new" class="btn-primary">+ 写文章</RouterLink>
+        <RouterLink to="/me/posts/new" class="btn btn-primary">+ 写文章</RouterLink>
       </div>
     </header>
 
-    <p v-if="errorMsg" class="banner err">{{ errorMsg }}</p>
-    <p v-if="okMsg" class="banner ok">{{ okMsg }}</p>
+    <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
+    <p v-if="okMsg" class="banner banner-success">{{ okMsg }}</p>
 
     <PostListRowSkeleton v-if="loading" :rows="5" :columns="4" />
 
-    <div v-else-if="visibleItems.length" class="list card">
-      <div class="row head-row">
+    <div v-else-if="visibleItems.length" class="list table">
+      <div class="table-row table-head">
         <span>标题</span>
         <span>状态</span>
         <span>时间</span>
-        <span class="right">操作</span>
+        <span class="text-right">操作</span>
       </div>
-      <div v-for="p in visibleItems" :key="p.id" class="row">
+      <div v-for="p in visibleItems" :key="p.id" class="table-row">
         <span class="col-title">
           <RouterLink :to="`/post/${p.id}`" class="title-link" :title="p.title">{{ p.title }}</RouterLink>
         </span>
         <span>
-          <span v-if="!p.publishedAt" class="badge draft">草稿</span>
-          <span v-else class="badge pub">已发布</span>
+          <span v-if="!p.publishedAt" class="badge badge-pill badge-warning">草稿</span>
+          <span v-else class="badge badge-pill badge-success">已发布</span>
         </span>
         <span class="muted">{{ fmtDate(p.publishedAt) || '未发布' }}</span>
-        <span class="right actions">
+        <span class="text-right row-actions">
           <RouterLink class="link" :to="`/me/posts/${p.id}/edit`">编辑</RouterLink>
           <button class="link" :disabled="busyId === p.id" @click="togglePublish(p)">
             {{ p.publishedAt ? '下架' : '发布' }}
           </button>
-          <button class="link danger" :disabled="busyId === p.id" @click="confirmDelete(p)">删除</button>
+          <button class="link link-danger" :disabled="busyId === p.id" @click="confirmDelete(p)">删除</button>
         </span>
       </div>
     </div>
 
-    <div v-else class="muted-block">
+    <div v-else class="empty empty-stack">
       <p>{{ onlyDrafts ? '没有草稿' : '你还没有写过文章' }}</p>
-      <RouterLink to="/me/posts/new" class="btn-primary">写第一篇</RouterLink>
+      <RouterLink to="/me/posts/new" class="btn btn-primary">写第一篇</RouterLink>
     </div>
 
     <nav v-if="totalPages > 1" class="pager">
-      <button class="btn-ghost" :disabled="!canPrev() || loading" @click="load(page - 1)">上一页</button>
+      <button class="btn btn-ghost" :disabled="!canPrev() || loading" @click="load(page - 1)">上一页</button>
       <span class="pager-info">第 {{ page }} / {{ totalPages }} 页</span>
-      <button class="btn-ghost" :disabled="!canNext() || loading" @click="load(page + 1)">下一页</button>
+      <button class="btn btn-ghost" :disabled="!canNext() || loading" @click="load(page + 1)">下一页</button>
     </nav>
   </section>
 </template>
@@ -168,16 +168,6 @@ function canNext() {
   gap: var(--space-4);
   flex-wrap: wrap;
 }
-.page-head h1 {
-  font: var(--text-h3);
-  color: var(--text-strong);
-  margin: 0;
-}
-.muted {
-  color: var(--text-muted);
-  font: var(--text-caption);
-  margin: 4px 0 0;
-}
 
 .head-actions {
   display: flex;
@@ -188,55 +178,21 @@ function canNext() {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font: var(--text-caption);
-  color: var(--text-muted);
   cursor: pointer;
 }
 
-.banner {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-.banner.err {
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-}
-.banner.ok {
-  background: color-mix(in srgb, #16a34a 14%, transparent);
-  color: #16a34a;
-}
-
-.muted-block {
+.empty-stack {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-12) 0;
-  color: var(--text-muted);
 }
 
 .list {
   overflow: hidden;
 }
-.row {
-  display: grid;
+.table-row {
   grid-template-columns: minmax(0, 1fr) 90px 150px 190px;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.row:last-child {
-  border-bottom: none;
-}
-.head-row {
-  background: var(--bg-raised);
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .col-title {
@@ -254,105 +210,29 @@ function canNext() {
   color: var(--brand-500);
 }
 
-.badge {
-  font: var(--text-caption);
-  padding: 2px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-.badge.draft {
-  background: color-mix(in srgb, #d97706 18%, transparent);
-  color: #d97706;
-}
-.badge.pub {
-  background: color-mix(in srgb, #16a34a 18%, transparent);
-  color: #16a34a;
-}
-
-.right {
-  text-align: right;
-}
-.actions {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-}
-
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-}
-.btn-ghost {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-default);
-  cursor: pointer;
-}
-.btn-ghost:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.link {
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: 13px;
-  color: var(--brand-500);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.link:hover {
-  text-decoration: underline;
-}
-.link.danger {
-  color: #e35151;
-}
-.link:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .pager {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  justify-content: flex-end;
-}
-.pager-info {
-  font: var(--text-caption);
-  color: var(--text-muted);
+  margin-top: 0;
 }
 
 @media (max-width: 880px) {
-  .head-row {
+  .table-head {
     display: none;
   }
-  .row {
+  .table-row {
     grid-template-columns: 1fr auto;
     gap: var(--space-2) var(--space-3);
   }
   .col-title {
     grid-column: 1 / -1;
-    font-size: 15px;
+    font: var(--text-body);
   }
-  .row > span:nth-child(2) {
+  .table-row > span:nth-child(2) {
     justify-self: start;
   }
-  .right {
+  .text-right {
     text-align: left;
   }
-  .actions {
+  .row-actions {
     grid-column: 1 / -1;
     justify-content: flex-start;
     padding-top: var(--space-2);

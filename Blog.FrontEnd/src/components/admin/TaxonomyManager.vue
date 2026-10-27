@@ -128,30 +128,30 @@ async function onDelete(item: TaxonomyItem) {
 
 <template>
   <section class="taxonomy">
-    <p v-if="errorMsg" class="banner err">{{ errorMsg }}</p>
-    <p v-if="okMsg" class="banner ok">{{ okMsg }}</p>
+    <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
+    <p v-if="okMsg" class="banner banner-success">{{ okMsg }}</p>
 
-    <form class="add-bar card" @submit.prevent="onCreate">
+    <form class="add-bar panel" @submit.prevent="onCreate">
       <input
         v-model="newName"
         class="input"
         maxlength="100"
         :placeholder="`新增${label(true)}，例如「${kind === 'category' ? '后端' : 'Vue'}」`"
       />
-      <button type="submit" class="btn-primary" :disabled="busy || !newName.trim()">新增</button>
+      <button type="submit" class="btn btn-primary" :disabled="busy || !newName.trim()">新增</button>
     </form>
 
-    <div v-if="loading" class="muted-block">加载中...</div>
+    <div v-if="loading" class="empty">加载中...</div>
 
-    <div v-else-if="items.length" class="list card">
-      <div class="list-head">
+    <div v-else-if="items.length" class="list table">
+      <div class="table-row table-head">
         <span>名称</span>
         <span v-if="showPostCount">文章数</span>
         <span>版本</span>
-        <span class="right">操作</span>
+        <span class="text-right">操作</span>
       </div>
 
-      <div v-for="item in items" :key="item.id" class="list-row">
+      <div v-for="item in items" :key="item.id" class="table-row">
         <template v-if="editingId === item.id">
           <input
             v-model="editingName"
@@ -162,9 +162,9 @@ async function onDelete(item: TaxonomyItem) {
           />
           <span v-if="showPostCount" class="muted">{{ item.postCount }}</span>
           <span class="muted">v{{ item.version }}</span>
-          <span class="right actions">
+          <span class="text-right row-actions">
             <button class="link" :disabled="busy" @click="saveEdit(item)">保存</button>
-            <button class="link muted-link" :disabled="busy" @click="cancelEdit">取消</button>
+            <button class="link link-muted" :disabled="busy" @click="cancelEdit">取消</button>
           </span>
         </template>
 
@@ -172,15 +172,15 @@ async function onDelete(item: TaxonomyItem) {
           <span class="name">{{ item.name }}</span>
           <span v-if="showPostCount" class="muted">{{ item.postCount }} 篇</span>
           <span class="muted">v{{ item.version }}</span>
-          <span class="right actions">
+          <span class="text-right row-actions">
             <button class="link" :disabled="busy" @click="startEdit(item)">编辑</button>
-            <button class="link danger" :disabled="busy" @click="onDelete(item)">删除</button>
+            <button class="link link-danger" :disabled="busy" @click="onDelete(item)">删除</button>
           </span>
         </template>
       </div>
     </div>
 
-    <div v-else class="muted-block">还没有任何{{ label(false) }}</div>
+    <div v-else class="empty">还没有任何{{ label(false) }}</div>
   </section>
 </template>
 
@@ -191,20 +191,6 @@ async function onDelete(item: TaxonomyItem) {
   gap: var(--space-4);
 }
 
-.banner {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-.banner.err {
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-}
-.banner.ok {
-  background: color-mix(in srgb, #16a34a 14%, transparent);
-  color: #16a34a;
-}
-
 .add-bar {
   display: flex;
   gap: var(--space-3);
@@ -213,29 +199,8 @@ async function onDelete(item: TaxonomyItem) {
 }
 
 /* 按钮不要被 flex 压缩变窄 */
-.add-bar .btn-primary {
+.add-bar .btn {
   flex: 0 0 auto;
-}
-
-.input {
-  width: 100%;
-  padding: var(--space-3);
-  font: var(--text-body-sm);
-  color: var(--text-strong);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-.input:focus {
-  border-color: var(--brand-500);
-}
-
-.muted-block {
-  padding: var(--space-12) 0;
-  text-align: center;
-  color: var(--text-muted);
 }
 
 .list {
@@ -243,94 +208,27 @@ async function onDelete(item: TaxonomyItem) {
   max-width: 760px;
 }
 
-.list-head,
-.list-row {
-  display: grid;
+.table-row {
   grid-template-columns: 1fr 96px 72px 128px;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-}
-.list-head {
-  background: var(--bg-raised);
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.list-row {
-  border-top: 1px solid var(--border-subtle);
-}
-.list-row:first-child {
-  border-top: none;
 }
 
 .name {
   color: var(--text-strong);
   font-weight: 600;
 }
-.muted {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-.right {
-  text-align: right;
-}
-
-.actions {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-}
-
-.btn-primary {
-  flex-shrink: 0;
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-}
-.btn-primary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.link {
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: 13px;
-  color: var(--brand-500);
-  cursor: pointer;
-}
-.link.muted-link {
-  color: var(--text-subtle);
-}
-.link.danger {
-  color: #e35151;
-}
-.link:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 @media (max-width: 640px) {
-  .list-head {
+  .table-head {
     display: none;
   }
-  .list-row {
+  .table-row {
     grid-template-columns: 1fr;
     gap: var(--space-2);
   }
-  .right {
+  .text-right {
     text-align: left;
   }
-  .actions {
+  .row-actions {
     justify-content: flex-start;
   }
 }

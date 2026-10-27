@@ -52,8 +52,8 @@ function onCancel() {
 
 <template>
   <section class="my-post-edit">
-    <p v-if="errorMsg" class="err-banner">{{ errorMsg }}</p>
-    <div v-if="loading" class="loading">加载中...</div>
+    <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
+    <div v-if="loading" class="empty">加载中...</div>
     <PostEditor
       v-else-if="post"
       mode="edit"
@@ -67,19 +67,9 @@ function onCancel() {
 
 <style scoped>
 .my-post-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   max-width: 880px;
-}
-.err-banner {
-  margin-bottom: var(--space-4);
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-.loading {
-  text-align: center;
-  padding: var(--space-12);
-  color: var(--text-muted);
 }
 </style>

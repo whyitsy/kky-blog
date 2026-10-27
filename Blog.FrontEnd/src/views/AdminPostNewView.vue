@@ -29,21 +29,16 @@ function onCancel() {
 
 <template>
   <section class="admin-new">
-    <p v-if="errorMsg" class="err-banner">{{ errorMsg }}</p>
+    <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
     <PostEditor mode="create" :saving="saving" @save="onSave" @cancel="onCancel" />
   </section>
 </template>
 
 <style scoped>
 .admin-new {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   max-width: 880px;
-}
-.err-banner {
-  margin-bottom: var(--space-4);
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
 }
 </style>

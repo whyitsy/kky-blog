@@ -115,19 +115,19 @@ function onReset() {
   <section class="my-profile">
     <header class="page-head">
       <div>
-        <h1>个人资料</h1>
-        <p class="muted">这里的姓名与头像会显示在你发布的文章上</p>
+        <h1 class="panel-title">个人资料</h1>
+        <p class="hint">这里的姓名与头像会显示在你发布的文章上</p>
       </div>
     </header>
 
-    <p v-if="errorMsg" class="banner err">{{ errorMsg }}</p>
-    <p v-if="okMsg" class="banner ok">{{ okMsg }}</p>
+    <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
+    <p v-if="okMsg" class="banner banner-success">{{ okMsg }}</p>
 
-    <div v-if="loading" class="muted-block">加载中...</div>
+    <div v-if="loading" class="empty">加载中...</div>
 
     <!-- 账号未关联作者：给出明确指引，而不是让用户对着空表单猜 -->
-    <div v-else-if="notLinked" class="card panel unlinked">
-      <h3>账号未关联作者</h3>
+    <div v-else-if="notLinked" class="panel panel-stack unlinked">
+      <h3 class="panel-title">账号未关联作者</h3>
       <p>
         你的登录账号（{{ auth.user?.email }}）还没有关联到任何作者。
         作者是文章的署名对象，需要由管理员在「账号管理 → 编辑 → 关联作者」中为你指定。
@@ -135,22 +135,22 @@ function onReset() {
       <p class="muted">在关联之前，你可以正常写文章，但文章不会显示你的署名信息。</p>
     </div>
 
-    <form v-else-if="author" class="card panel" @submit.prevent="onSave">
-      <div class="avatar-row">
-        <div class="avatar-box">
+    <form v-else-if="author" class="panel panel-stack" @submit.prevent="onSave">
+      <div class="media-picker">
+        <div class="media-preview round avatar-box">
           <img v-if="form.avatar && !avatarBroken" :src="form.avatar" alt="头像" @error="avatarBroken = true" />
-          <span v-else class="avatar-fallback">{{ form.name.slice(0, 1) || '?' }}</span>
+          <span v-else class="media-fallback initial">{{ form.name.slice(0, 1) || '?' }}</span>
         </div>
-        <div class="avatar-actions">
-          <div class="avatar-buttons">
-            <label class="btn-ghost">
+        <div class="media-picker-actions">
+          <div class="media-picker-buttons">
+            <label class="btn btn-ghost">
               {{ uploading ? '上传中...' : form.avatar ? '更换头像' : '上传头像' }}
               <input type="file" :accept="ACCEPT_IMAGE" hidden :disabled="uploading" @change="onPickAvatar" />
             </label>
             <button
               v-if="form.avatar"
               type="button"
-              class="btn-ghost"
+              class="btn btn-ghost"
               :disabled="uploading"
               @click="form.avatar = ''"
             >
@@ -174,21 +174,21 @@ function onReset() {
 
       <label class="field">
         <span class="label">个人简介</span>
-        <textarea v-model="form.bio" class="input textarea" rows="4" maxlength="500" />
+        <textarea v-model="form.bio" class="textarea" rows="4" maxlength="500" />
       </label>
 
       <footer class="form-actions">
-        <span class="version">版本号 v{{ author.version }}</span>
+        <span class="hint">版本号 v{{ author.version }}</span>
         <div class="actions">
-          <button type="button" class="btn-ghost" :disabled="saving" @click="onReset">重置</button>
-          <button type="submit" class="btn-primary" :disabled="saving || uploading">
+          <button type="button" class="btn btn-ghost" :disabled="saving" @click="onReset">重置</button>
+          <button type="submit" class="btn btn-primary" :disabled="saving || uploading">
             {{ saving ? '保存中...' : '保存' }}
           </button>
         </div>
       </footer>
     </form>
 
-    <div v-else class="muted-block">暂无作者资料</div>
+    <div v-else class="empty">暂无作者资料</div>
   </section>
 </template>
 
@@ -200,174 +200,25 @@ function onReset() {
 }
 
 .page-head h1 {
-  font: var(--text-h3);
-  color: var(--text-strong);
-  margin: 0;
-}
-.muted {
-  color: var(--text-muted);
-  font: var(--text-caption);
-  margin: 4px 0 0;
+  margin-bottom: var(--space-1);
 }
 
-.banner {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  font: var(--text-body-sm);
-}
-.banner.err {
-  background: color-mix(in srgb, #e35151 12%, transparent);
-  color: #e35151;
-}
-.banner.ok {
-  background: color-mix(in srgb, #16a34a 14%, transparent);
-  color: #16a34a;
-}
-
-.muted-block {
-  padding: var(--space-12) 0;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-6);
-  max-width: 720px;
-}
-.panel h3 {
-  font: var(--text-h3);
-  color: var(--text-strong);
-  margin: 0;
+.avatar-box {
+  width: 88px;
+  height: 88px;
 }
 
 .unlinked p {
   font: var(--text-body-sm);
   color: var(--text-default);
   line-height: 1.9;
-  margin: 0;
-}
-
-.avatar-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  flex-wrap: wrap;
-}
-.avatar-box {
-  width: 88px;
-  height: 88px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--border-default);
-  background: var(--bg-raised);
-}
-.avatar-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.avatar-fallback {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--brand-500);
-}
-.avatar-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex: 1;
-  min-width: 220px;
-}
-.avatar-buttons {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.label {
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.hint {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-
-.input {
-  width: 100%;
-  padding: var(--space-3);
-  font: var(--text-body-sm);
-  color: var(--text-strong);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  outline: none;
-}
-.input:focus {
-  border-color: var(--brand-500);
-}
-.textarea {
-  resize: vertical;
-  font-family: inherit;
 }
 
 .form-actions {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-subtle);
-  flex-wrap: wrap;
-}
-.version {
-  font: var(--text-caption);
-  color: var(--text-subtle);
 }
 .actions {
   display: flex;
   gap: var(--space-3);
-}
-
-.btn-primary {
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-}
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-default);
-  cursor: pointer;
-}
-.btn-primary:disabled,
-.btn-ghost:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 </style>

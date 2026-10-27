@@ -5,7 +5,7 @@ import { useSiteStore } from '@/stores/site'
 import { useAuthStore } from '@/stores/auth'
 import { logout as logoutApi } from '@/api/auth'
 import { DEFAULT_SITE_NAME } from '@/utils/site'
-import SiteLogo from '@/components/common/SiteLogo.vue'
+import { SiteLogo, ThemeSwitcher } from '@/ui'
 
 const route = useRoute()
 const router = useRouter()
@@ -71,7 +71,7 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
-          class="nav-item"
+          class="console-nav-item"
           :class="{ active: currentItem?.to === item.to }"
         >
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -82,14 +82,14 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
       </nav>
 
       <div class="side-footer">
-        <span class="side-footer-label">快捷入口</span>
-        <button class="back-link" @click="router.push('/me')">
+        <span class="label side-footer-label">快捷入口</span>
+        <button class="console-nav-item back-link" @click="router.push('/me')">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
           </svg>
           我的写作台
         </button>
-        <button class="back-link" @click="router.push('/')">
+        <button class="console-nav-item back-link" @click="router.push('/')">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 12H5m0 0 6-6m-6 6 6 6" />
           </svg>
@@ -100,13 +100,13 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
 
     <div class="admin-main">
       <header class="admin-topbar">
-        <h1>{{ currentTitle }}</h1>
+        <h1 class="admin-title">{{ currentTitle }}</h1>
         <div class="topbar-right">
           <span class="who">
             <span class="who-email">{{ auth.user?.email }}</span>
-            <span class="who-role">{{ auth.role }}</span>
+            <span class="hint">{{ auth.role }}</span>
           </span>
-          <button class="btn-logout" @click="onLogout">退出登录</button>
+          <button class="btn btn-ghost btn-sm" @click="onLogout">退出登录</button>
         </div>
       </header>
 
@@ -118,6 +118,8 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
         </RouterView>
       </div>
     </div>
+
+    <ThemeSwitcher />
   </div>
 </template>
 
@@ -127,19 +129,18 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
   display: flex;
   align-items: stretch;
   min-height: 100vh;
-  background: var(--bg-canvas);
 }
 
 /* ---------- 侧边栏 ---------- */
 .admin-side {
   width: 216px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
   padding: var(--space-6) var(--space-3);
-  background: var(--bg-surface);
-  border-right: 1px solid var(--border-subtle);
   /* 侧栏固定，不随右侧内容滚动。
      改之前这里没有任何高度约束，外层 .admin-shell 是 align-items: stretch，
      于是侧栏跟着内容一起变高、整个滚走 —— 长列表页上按钮就"消失"了。
@@ -156,7 +157,6 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
   gap: var(--space-3);
   padding: 0 var(--space-3);
   /* 它是 <RouterLink>：去掉链接下划线，并给一个可点击的反馈 */
-  text-decoration: none;
   border-radius: var(--radius-sm);
   transition: opacity var(--transition-fast);
 }
@@ -170,13 +170,14 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
   min-width: 0;
 }
 .brand-text strong {
-  font-size: 14px;
+  font: var(--text-body-sm);
   font-weight: 700;
   color: var(--text-strong);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .brand-text em {
   font: var(--text-caption);
   font-style: normal;
@@ -190,30 +191,6 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
   flex: 1;
 }
 
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-muted);
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast), background var(--transition-fast);
-}
-.nav-item:hover {
-  color: var(--text-strong);
-  background: var(--bg-raised);
-}
-.nav-item.active {
-  color: var(--brand-500);
-  background: color-mix(in srgb, var(--brand-500) 12%, transparent);
-}
-
-/* 底部「快捷入口」。
-   以前这里是两个透明的 13px 小字按钮（.back-link，颜色 text-subtle），
-   与上方 .nav-item（有 padding/圆角/悬停底色/图标）视觉权重差太远，
-   用户第一时间找不到 —— 现在改成与 .nav-item 完全同规格的样式。 */
 .side-footer {
   display: flex;
   flex-direction: column;
@@ -224,31 +201,12 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
 
 .side-footer-label {
   padding: 0 var(--space-3) var(--space-1);
-  font: var(--text-caption);
-  color: var(--text-subtle);
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
+/* 快捷入口与导航项同规格，但它是 <button>：铺满宽度、文字左对齐 */
 .back-link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
   width: 100%;
-  padding: var(--space-3);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-muted);
   text-align: left;
-  cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast);
-}
-.back-link:hover {
-  color: var(--text-strong);
-  background: var(--bg-raised);
 }
 .back-link svg {
   flex-shrink: 0;
@@ -264,18 +222,18 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
 
 .admin-topbar {
   display: flex;
+  border-bottom: 1px solid var(--border-subtle);
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
   padding: var(--space-6) var(--space-8) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
 }
-.admin-topbar h1 {
+
+.admin-title {
   font: var(--text-h2);
-  color: var(--text-strong);
-  margin: 0;
 }
+
 .topbar-right {
   display: flex;
   align-items: center;
@@ -288,32 +246,15 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
   line-height: 1.3;
 }
 .who-email {
-  font-size: 13px;
+  font: var(--text-body-sm);
   font-weight: 600;
   color: var(--text-strong);
-}
-.who-role {
-  font: var(--text-caption);
-  color: var(--text-subtle);
-}
-.btn-logout {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  color: var(--text-default);
-  background: transparent;
-  cursor: pointer;
-}
-.btn-logout:hover {
-  border-color: #e35151;
-  color: #e35151;
 }
 
 .admin-content {
   padding: var(--space-6) var(--space-8) var(--space-16);
   width: 100%;
-  max-width: 1120px;
+  max-width: var(--size-container);
 }
 
 /* ---------- 窄屏：侧边栏折叠为横向滚动 tab ---------- */
@@ -333,7 +274,7 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
-    border-right: none;
+    border-right: 0;
     border-bottom: 1px solid var(--border-subtle);
     overflow-x: auto;
   }
@@ -350,20 +291,11 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
     gap: var(--space-1);
     flex: 0 0 auto;
   }
-  .nav-item {
-    padding: var(--space-2) var(--space-3);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .nav-item span {
-    font-size: 13px;
-  }
+  .admin-nav .console-nav-item,
   .back-link {
-    flex-shrink: 0;
-    border-top: none;
-    border-left: 1px solid var(--border-subtle);
     padding: var(--space-2) var(--space-3);
     white-space: nowrap;
+    flex-shrink: 0;
   }
   .admin-topbar {
     padding: var(--space-5) var(--space-4) var(--space-3);
