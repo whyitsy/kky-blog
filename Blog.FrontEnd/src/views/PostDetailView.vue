@@ -1,34 +1,54 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { getPostDetail } from '@/api/posts'
 import { isNotFoundError } from '@/api/http'
 import { renderMarkdown } from '@/utils/markdown'
 import { DEFAULT_SITE_NAME } from '@/utils/site'
 import { useSiteStore } from '@/stores/site'
 import type { PostDetailDto } from '@/types'
-import GiscusComments from '@/components/common/GiscusComments.vue'
-import PostDetailSkeleton from '@/components/skeleton/PostDetailSkeleton.vue'
+import { useThemePage, type PostDetailPageModel, type TocItem } from '@/ui'
 
+/**
+ * 文章详情数据控制器：拉数据、渲染并净化正文、生成目录、跟踪滚动高亮/阅读进度，
+ * 把展示所需的一切组装成 `PostDetailPageModel`。
+ */
 const route = useRoute()
 const site = useSiteStore()
+
+/** 当前主题提供的文章详情页组件 */
+const page = useThemePage('post-detail')
+
 const post = ref<PostDetailDto | null>(null)
 const loading = ref(true)
 const notFound = ref(false)
 const loadFailed = ref(false)
 
-interface TocItem {
-  id: string
-  text: string
-  level: number
-}
 const toc = ref<TocItem[]>([])
 const activeHeading = ref('')
 const readProgress = ref(0)
 
-const renderedContent = computed(() =>
-  post.value ? renderMarkdown(post.value.content) : '',
-)
+/**
+ * 给渲染后的 `<h2>/<h3>` 依次补 `id="heading-N"`。
+ *
+ * 在**渲染结果字符串**上做（而不是挂载后查询 `.article-body h2`）：
+ * 锚点由数据层注入，任何主题直接 `v-html` 都天然可跳转，不再依赖某个主题的 DOM 结构。
+ * 顺序与 `buildToc()` 解析 markdown 的顺序一致。
+ */
+function injectHeadingIds(html: string): string {
+  if (!html) return ''
+  let index = 0
+  return html.replace(/<h([23])(\s[^>]*)?>/gi, (_match, level: string, attrs?: string) => {
+    // 清掉作者可能自己带的 id，避免与目录 id 冲突
+    const rest = (attrs ?? '').replace(/\sid=("[^"]*"|'[^']*'|[^\s>]+)/i, '')
+    return `<h${level}${rest} id="heading-${index++}">`
+  })
+}
+
+const renderedContent = computed(() => {
+  if (!post.value) return ''
+  return injectHeadingIds(renderMarkdown(post.value.content))
+})
 
 async function load(id: string) {
   loading.value = true
@@ -53,30 +73,42 @@ async function load(id: string) {
   }
 }
 
-/** 从 markdown 提取 h2/h3 生成目录 */
+/**
+ * 从 markdown 提取 h2/h3 生成目录（与 injectHeadingIds 的编号顺序一致）。
+ *
+ * 必须跳过围栏代码块：正文里出现的 ``` ``` 段落中的 `## 注释` 是代码而不是标题，
+ * 旧实现用裸正则会在目录里生成「幽灵条目」，点进去还找不到对应 heading。
+ */
 function buildToc() {
   if (!post.value) return
   const items: TocItem[] = []
-  const re = /^(#{2,3})\s+(.+)$/gm
-  let match
+  let inFence = false
+  let fenceMarker = ''
   let idx = 0
-  while ((match = re.exec(post.value.content)) !== null) {
+
+  for (const line of post.value.content.split(/\r?\n/)) {
+    const fence = line.match(/^\s*(`{3,}|~{3,})/)
+    if (fence) {
+      const marker = fence[1]!
+      if (!inFence) {
+        inFence = true
+        fenceMarker = marker[0]!
+      } else if (marker[0] === fenceMarker) {
+        inFence = false
+      }
+      continue
+    }
+    if (inFence) continue
+
+    const heading = line.match(/^(#{2,3})\s+(.+)$/)
+    if (!heading) continue
     items.push({
       id: `heading-${idx++}`,
-      text: match[2]!.replace(/[*`]/g, ''),
-      level: match[1]!.length,
+      text: heading[2]!.replace(/[*`]/g, ''),
+      level: heading[1]!.length,
     })
   }
   toc.value = items
-}
-
-/** 渲染后为标题补充 id（与 toc 对应） */
-function patchHeadingIds() {
-  const article = document.querySelector('.article-body')
-  if (!article) return
-  article.querySelectorAll('h2, h3').forEach((h, i) => {
-    if (!h.id) h.id = `heading-${i}`
-  })
 }
 
 function onScroll() {
@@ -85,12 +117,12 @@ function onScroll() {
   const total = el.scrollHeight - el.clientHeight
   readProgress.value = total > 0 ? Math.min(100, Math.round((window.scrollY / total) * 100)) : 0
 
-  // 目录高亮
-  const headings = document.querySelectorAll('.article-body h2, .article-body h3')
+  // 目录高亮：按 toc 的 id 逐个取元素（不再依赖某主题正文的 class 结构）
   let current = ''
-  headings.forEach((h) => {
-    if (h.getBoundingClientRect().top < 120) current = h.id
-  })
+  for (const item of toc.value) {
+    const heading = document.getElementById(item.id)
+    if (heading && heading.getBoundingClientRect().top < 120) current = item.id
+  }
   activeHeading.value = current
 }
 
@@ -98,7 +130,10 @@ function scrollToHeading(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
 }
 
-watch(post, () => setTimeout(patchHeadingIds, 0))
+function retry() {
+  void load(String(route.params.id ?? ''))
+}
+
 watch(() => route.params.id, (id) => id && load(String(id)))
 
 onMounted(() => {
@@ -109,504 +144,34 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 
 function formatDate(iso: string | null) {
   if (!iso) return ''
-  return new Date(iso).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+  return new Date(iso).toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 }
 
-const readMinutes = computed(() => (post.value ? Math.max(1, Math.round(post.value.wordCount / 400)) : 0))
+const publishedLabel = computed(() => formatDate(post.value?.publishedAt ?? null))
+const readMinutes = computed(() =>
+  post.value ? Math.max(1, Math.round(post.value.wordCount / 400)) : 0,
+)
+
+const model = computed<PostDetailPageModel>(() => ({
+  post: post.value,
+  loading: loading.value,
+  notFound: notFound.value,
+  loadFailed: loadFailed.value,
+  renderedContent: renderedContent.value,
+  toc: toc.value,
+  activeHeading: activeHeading.value,
+  readProgress: readProgress.value,
+  readMinutes: readMinutes.value,
+  publishedLabel: publishedLabel.value,
+  retry,
+  scrollToHeading,
+}))
 </script>
 
 <template>
-  <div class="post-detail-view">
-    <!-- 阅读进度条 -->
-    <div class="progress-bar" :style="{ width: `${readProgress}%` }" />
-
-    <PostDetailSkeleton v-if="loading" />
-
-    <div v-else-if="notFound" class="container not-found">
-      <p class="nf-icon">🔍</p>
-      <h1 class="nf-title">文章不存在</h1>
-      <p class="nf-desc">该文章可能已被删除，或尚未发布。</p>
-      <RouterLink to="/" class="nf-link">返回首页</RouterLink>
-    </div>
-
-    <div v-else-if="loadFailed" class="container not-found">
-      <p class="nf-icon">⚠️</p>
-      <h1 class="nf-title">加载失败</h1>
-      <p class="nf-desc">服务暂时不可用，请稍后重试。</p>
-      <div class="nf-actions">
-        <button type="button" class="nf-link nf-btn" @click="load(String(route.params.id ?? ''))">
-          重新加载
-        </button>
-        <RouterLink to="/" class="nf-link">返回首页</RouterLink>
-      </div>
-    </div>
-
-    <template v-else-if="post">
-      <!-- 封面头图 -->
-      <header class="post-hero">
-        <div
-          class="post-hero-bg"
-          :style="post.coverImage ? { backgroundImage: `url(${post.coverImage})` } : undefined"
-          :class="{ 'no-cover': !post.coverImage }"
-        />
-        <div class="post-hero-mask" />
-        <div class="container post-hero-content">
-          <div class="post-badges">
-            <RouterLink
-              v-if="post.categoryId"
-              :to="{ path: '/posts', query: { categoryId: post.categoryId } }"
-              class="category-badge"
-            >
-              {{ post.categoryName }}
-            </RouterLink>
-            <RouterLink
-              v-for="tag in post.tags"
-              :key="tag.id"
-              :to="{ path: '/posts', query: { tagId: tag.id } }"
-              class="tag-badge"
-            >
-              {{ tag.name }}
-            </RouterLink>
-            <!-- 所属专栏：指向专栏详情页（一篇文章可属于多个专栏） -->
-            <RouterLink
-              v-for="col in post.collections ?? []"
-              :key="col.id"
-              :to="`/collections/${col.slug}`"
-              class="collection-badge"
-            >
-              📚 {{ col.title }}
-            </RouterLink>
-          </div>
-          <h1 class="post-title">{{ post.title }}</h1>
-          <div class="post-meta">
-            <img :src="post.authorAvatar" :alt="post.authorName" class="meta-avatar" />
-            <span class="meta-author">{{ post.authorName }}</span>
-            <span class="meta-sep">·</span>
-            <time>{{ formatDate(post.publishedAt) }}</time>
-            <span class="meta-sep">·</span>
-            <span>{{ readMinutes }} 分钟阅读</span>
-            <span class="meta-sep">·</span>
-            <span>{{ post.viewCount }} 次浏览</span>
-          </div>
-        </div>
-      </header>
-
-      <!-- 正文 + 侧栏 -->
-      <div class="container detail-layout">
-        <article class="article-body" v-html="renderedContent" />
-
-        <aside v-if="toc.length" class="detail-sidebar">
-          <div class="sidebar-card card">
-            <h4 class="sidebar-title">目录</h4>
-            <nav class="toc">
-              <a
-                v-for="item in toc"
-                :key="item.id"
-                :href="`#${item.id}`"
-                class="toc-link"
-                :class="{ active: activeHeading === item.id, 'toc-h3': item.level === 3 }"
-                @click.prevent="scrollToHeading(item.id)"
-              >
-                {{ item.text }}
-              </a>
-            </nav>
-          </div>
-
-          <div class="sidebar-card card">
-            <h4 class="sidebar-title">阅读进度</h4>
-            <p class="progress-num">{{ readProgress }}%</p>
-            <div class="progress-track">
-              <div class="progress-fill" :style="{ width: `${readProgress}%` }" />
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      <!-- 评论 -->
-      <div class="container comments-section">
-        <h3 class="comments-title">评论</h3>
-        <GiscusComments />
-      </div>
-    </template>
-  </div>
+  <component :is="page" v-if="page" :model="model" />
 </template>
-
-<style scoped>
-.post-detail-view {
-  padding-top: 64px;
-}
-
-.progress-bar {
-  position: fixed;
-  top: 64px;
-  left: 0;
-  height: 2px;
-  z-index: 99;
-  background: linear-gradient(90deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
-  transition: width 100ms linear;
-}
-
-/* ---------- 头图 ---------- */
-.post-hero {
-  position: relative;
-  min-height: 340px;
-  display: flex;
-  align-items: flex-end;
-  overflow: hidden;
-}
-
-.post-hero-bg {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-}
-
-.post-hero-bg.no-cover {
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
-  opacity: 0.75;
-}
-
-.post-hero-mask {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(19, 20, 26, 0.3), var(--bg-canvas) 96%);
-}
-
-[data-theme='light'] .post-hero-mask {
-  background: linear-gradient(180deg, rgba(241, 243, 249, 0.2), var(--bg-canvas) 96%);
-}
-
-.post-hero-content {
-  position: relative;
-  z-index: 2;
-  padding-top: var(--space-16);
-  padding-bottom: var(--space-8);
-}
-
-.post-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
-/* .category-badge 已提升为全局样式（src/styles/global.css），便于卡片/列表复用 */
-
-/* 专栏徽章：虚线边框 + 图标前缀，与分类（实心渐变）、标签（实线细边框）三者可区分 */
-.collection-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px var(--space-3);
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--text-default);
-  background: var(--bg-raised);
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-xs);
-  white-space: nowrap;
-}
-.collection-badge:hover {
-  color: var(--brand-500);
-  border-color: var(--brand-500);
-}
-
-.post-title {
-  font: var(--text-h1);
-  font-size: 36px;
-  color: var(--text-strong);
-  max-width: 800px;
-  margin-bottom: var(--space-4);
-}
-
-.post-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  flex-wrap: wrap;
-}
-
-.meta-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--bg-raised);
-}
-
-.meta-author {
-  font-weight: 600;
-  color: var(--text-default);
-}
-
-.meta-sep {
-  color: var(--text-disabled);
-}
-
-/* ---------- 双栏 ---------- */
-.detail-layout {
-  display: grid;
-  grid-template-columns: minmax(0, var(--size-prose)) var(--size-sidebar);
-  gap: var(--space-10);
-  justify-content: center;
-  padding-top: var(--space-8);
-}
-
-@media (max-width: 1023px) {
-  .detail-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .detail-sidebar {
-    display: none;
-  }
-}
-
-.detail-sidebar {
-  position: sticky;
-  top: 88px;
-  align-self: start;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.sidebar-card {
-  padding: var(--space-5);
-}
-
-.sidebar-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-strong);
-  margin-bottom: var(--space-3);
-}
-
-.toc {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.toc-link {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  border-left: 2px solid var(--border-subtle);
-  padding-left: var(--space-3);
-  transition: color var(--transition-fast), border-color var(--transition-fast);
-}
-
-.toc-link.toc-h3 {
-  padding-left: var(--space-6);
-  font-size: 13px;
-}
-
-.toc-link:hover,
-.toc-link.active {
-  color: var(--brand-500);
-  border-left-color: var(--brand-500);
-}
-
-.progress-num {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--text-strong);
-  margin-bottom: var(--space-2);
-}
-
-.progress-track {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--bg-sunken);
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
-  transition: width 100ms linear;
-}
-
-/* ---------- 正文排版 ---------- */
-.article-body {
-  font-size: 16px;
-  line-height: 1.75;
-  color: var(--text-default);
-  overflow-wrap: break-word;
-}
-
-.article-body :deep(h2) {
-  font: var(--text-h2);
-  font-size: 24px;
-  color: var(--text-strong);
-  margin: var(--space-10) 0 var(--space-4);
-  scroll-margin-top: 88px;
-}
-
-.article-body :deep(h3) {
-  font: var(--text-h3);
-  font-size: 19px;
-  color: var(--text-strong);
-  margin: var(--space-8) 0 var(--space-3);
-  scroll-margin-top: 88px;
-}
-
-.article-body :deep(p) {
-  margin-bottom: var(--space-4);
-}
-
-.article-body :deep(a) {
-  color: var(--brand-500);
-  border-bottom: 1px dashed color-mix(in srgb, var(--brand-500) 50%, transparent);
-}
-
-.article-body :deep(strong) {
-  color: var(--text-strong);
-  font-weight: 600;
-}
-
-.article-body :deep(ul),
-.article-body :deep(ol) {
-  margin: 0 0 var(--space-4) var(--space-6);
-}
-
-.article-body :deep(ul) {
-  list-style: disc;
-}
-
-.article-body :deep(ol) {
-  list-style: decimal;
-}
-
-.article-body :deep(li) {
-  margin-bottom: var(--space-2);
-}
-
-.article-body :deep(blockquote) {
-  margin: 0 0 var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-left: 3px solid var(--brand-500);
-  background: color-mix(in srgb, var(--brand-500) 6%, transparent);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  color: var(--text-muted);
-}
-
-.article-body :deep(code) {
-  font-family: var(--font-mono);
-  font-size: 0.88em;
-  padding: 2px 6px;
-  background: var(--bg-sunken);
-  border-radius: var(--radius-xs);
-}
-
-.article-body :deep(pre) {
-  margin-bottom: var(--space-4);
-  padding: var(--space-4);
-  background: var(--bg-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  overflow-x: auto;
-}
-
-.article-body :deep(pre code) {
-  padding: 0;
-  background: none;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.article-body :deep(img) {
-  margin: var(--space-4) auto;
-  border-radius: var(--radius-md);
-}
-
-.article-body :deep(hr) {
-  margin: var(--space-8) 0;
-  border: none;
-  height: 1px;
-  background: var(--border-subtle);
-}
-
-.article-body :deep(table) {
-  width: 100%;
-  margin-bottom: var(--space-4);
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.article-body :deep(th),
-.article-body :deep(td) {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-subtle);
-}
-
-.article-body :deep(th) {
-  background: var(--bg-raised);
-  color: var(--text-strong);
-}
-
-/* ---------- 评论 ---------- */
-.comments-section {
-  max-width: var(--size-prose);
-  padding-top: var(--space-10);
-  padding-bottom: var(--space-16);
-}
-
-.comments-title {
-  font: var(--text-h3);
-  color: var(--text-strong);
-}
-
-/* ---------- 加载与 404 ---------- */
-.w-60 { width: 60%; }
-.w-80 { width: 80%; }
-
-.not-found {
-  padding: var(--space-24) 0;
-  text-align: center;
-}
-
-.nf-icon {
-  font-size: 48px;
-  margin-bottom: var(--space-4);
-}
-
-.nf-title {
-  font: var(--text-h2);
-  color: var(--text-strong);
-  margin-bottom: var(--space-4);
-}
-
-.nf-desc {
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-  margin-bottom: var(--space-6);
-}
-
-.nf-actions {
-  display: flex;
-  gap: var(--space-4);
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.nf-link {
-  padding: var(--space-3) var(--space-6);
-  color: #fff;
-  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-  border-radius: var(--radius-sm);
-}
-
-.nf-btn {
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 14px;
-}
-</style>

@@ -1,16 +1,36 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-ui-theme="aurora" data-color-mode="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Rubik/Noto Sans SC 供 aurora 主题，Noto Serif SC 供 paper 主题的标题与正文 -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+Mono:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+Mono:wght@400;600&display=swap"
       rel="stylesheet"
     />
-    <!-- 站点名来自 .env 的 VITE_SITE_NAME（Vite 会在构建时替换 %VITE_*% 占位符）。
+    <!-- 首屏主题防闪烁：在样式与 JS 模块加载前，把持久化的主题/配色写到 <html>。
+         localStorage 的键名必须与 src/ui/runtime/store.ts 保持一致。
+         默认值来自 .env 的 VITE_DEFAULT_THEME / VITE_DEFAULT_COLOR_MODE（Vite 构建期替换）。
+         这里只能同步内联（不能用模块），否则会先渲染默认主题再跳到用户选择。 -->
+    <script>
+      ;(function () {
+        var root = document.documentElement
+        var theme = '%VITE_DEFAULT_THEME%' || 'aurora'
+        var mode = '%VITE_DEFAULT_COLOR_MODE%' || 'dark'
+        try {
+          theme = localStorage.getItem('blog-ui-theme') || theme
+          mode = localStorage.getItem('blog-ui-mode') || mode
+        } catch (e) {
+          /* localStorage 不可用（隐私模式）时使用构建期默认值 */
+        }
+        root.dataset.uiTheme = theme
+        root.dataset.colorMode = mode
+      })()
+    </script>
+    <!-- 站点名来自 .env 的 VITE_SITE_NAME（Vite 会在构建时替换占位符）。
          它是公开信息，不是密钥 —— VITE_ 前缀的变量会被打进客户端产物。 -->
     <title>%VITE_SITE_NAME%</title>
   </head>

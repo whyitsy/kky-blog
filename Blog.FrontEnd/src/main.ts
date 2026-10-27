@@ -2,12 +2,13 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-import { useThemeStore, useSearchStore } from './stores/app'
+// UI 层必须先于应用初始化：注入 foundation 样式并注册内置主题
+import '@/ui'
+import { useThemeStore } from '@/ui'
+import { useSearchStore } from './stores/app'
 import { useAuthStore, configureAuthExpiry } from './stores/auth'
 import { configureHttp, ErrorCode, ApiError } from './api/http'
 import { typewriter } from './directives/typewriter'
-import './styles/tokens.css'
-import './styles/global.css'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -16,7 +17,7 @@ app.use(pinia)
 app.use(router)
 app.directive('typewriter', typewriter)
 
-// 应用持久化主题（dark 默认）
+// 应用持久化主题（默认主题/模式来自 VITE_DEFAULT_THEME / VITE_DEFAULT_COLOR_MODE）
 useThemeStore().apply()
 
 // ---------------------------------------------------------------- 认证接线

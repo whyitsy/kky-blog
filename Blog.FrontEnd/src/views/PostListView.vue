@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import PostCardList from '@/components/post/PostCardList.vue'
 import { getPosts, searchPosts } from '@/api/posts'
 import { getCategories } from '@/api/categories'
 import { getTags } from '@/api/tags'
 import type { PagedResult, PostListItemDto } from '@/types'
+import { useThemePage, type PostListPageModel } from '@/ui'
 
+/**
+ * 文章列表数据控制器：按 keyword / tagId / categoryId / page 拉数据，
+ * 并把「标题/篇数」归一化成页面模型（搜索、标签筛选、分类筛选共用同一套文案规则）。
+ */
 const route = useRoute()
 const router = useRouter()
+
+/** 当前主题提供的文章列表页组件 */
+const page = useThemePage('post-list')
 
 const result = ref<PagedResult<PostListItemDto> | null>(null)
 const loading = ref(true)
@@ -17,7 +24,7 @@ const filterName = ref('')
 const keyword = computed(() => String(route.query.keyword ?? ''))
 const tagId = computed(() => String(route.query.tagId ?? ''))
 const categoryId = computed(() => String(route.query.categoryId ?? ''))
-const page = computed(() => Math.max(1, Number(route.query.page) || 1))
+const pageNumber = computed(() => Math.max(1, Number(route.query.page) || 1))
 
 const headerTitle = computed(() => {
   if (keyword.value) return `搜索「${keyword.value}」`
@@ -29,10 +36,10 @@ async function load() {
   loading.value = true
   try {
     if (keyword.value) {
-      result.value = await searchPosts(keyword.value, page.value, 12)
+      result.value = await searchPosts(keyword.value, pageNumber.value, 12)
     } else {
       result.value = await getPosts({
-        page: page.value,
+        page: pageNumber.value,
         pageSize: 12,
         tagId: tagId.value || undefined,
         categoryId: categoryId.value || undefined,
@@ -60,15 +67,23 @@ async function resolveFilterName() {
   }
 }
 
-function onPageChange(p: number) {
-  router.push({ query: { ...route.query, page: p > 1 ? p : undefined } })
+function goPage(nextPage: number) {
+  router.push({ query: { ...route.query, page: nextPage > 1 ? nextPage : undefined } })
 }
+
+const model = computed<PostListPageModel>(() => ({
+  result: result.value,
+  loading: loading.value,
+  title: headerTitle.value,
+  subtitle: result.value ? `共 ${result.value.total} 篇文章` : '',
+  goPage,
+}))
 
 watch([keyword, tagId, categoryId], () => {
   resolveFilterName()
   load()
 })
-watch(page, load)
+watch(pageNumber, load)
 
 onMounted(() => {
   resolveFilterName()
@@ -77,55 +92,5 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="post-list-view">
-    <header class="page-header">
-      <div class="aurora-blobs" />
-      <p class="eyebrow">POSTS</p>
-      <h1 class="page-title gradient-text">{{ headerTitle }}</h1>
-      <p v-if="result" class="page-sub">共 {{ result.total }} 篇文章</p>
-    </header>
-
-    <div class="container list-container">
-      <PostCardList :result="result" :loading="loading" @page-change="onPageChange" />
-    </div>
-  </div>
+  <component :is="page" v-if="page" :model="model" />
 </template>
-
-<style scoped>
-.post-list-view {
-  padding-top: 64px;
-  min-height: 70vh;
-}
-
-.page-header {
-  position: relative;
-  padding: var(--space-16) var(--space-6) var(--space-8);
-  text-align: center;
-  overflow: hidden;
-}
-
-.eyebrow {
-  position: relative;
-  font: var(--text-caption);
-  letter-spacing: 3px;
-  color: var(--text-subtle);
-  margin-bottom: var(--space-3);
-}
-
-.page-title {
-  position: relative;
-  font: var(--text-h1);
-  font-size: 38px;
-}
-
-.page-sub {
-  position: relative;
-  margin-top: var(--space-3);
-  font: var(--text-body-sm);
-  color: var(--text-muted);
-}
-
-.list-container {
-  padding-bottom: var(--space-16);
-}
-</style>
