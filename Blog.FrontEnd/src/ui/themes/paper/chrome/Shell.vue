@@ -10,7 +10,6 @@ import {
 } from '@/ui/contracts/nav'
 import { useSearchStore } from '@/stores/app'
 import { useSiteStore } from '@/stores/site'
-import { useAuthStore } from '@/stores/auth'
 import { pad2 } from '../format'
 
 /**
@@ -24,13 +23,10 @@ import { pad2 } from '../format'
 const route = useRoute()
 const site = useSiteStore()
 const search = useSearchStore()
-const auth = useAuthStore()
 
 const year = new Date().getFullYear()
-// 与 aurora 一致：adminOnly 入口只对管理员展示（匿名不显示「管理」）
-const navItems = computed(() =>
-  PUBLIC_NAV_ITEMS.filter((item) => !item.adminOnly || auth.isAdmin),
-)
+// 与 aurora 一致：「管理」入口对所有访客展示，登录状态由路由守卫处理
+const navItems = PUBLIC_NAV_ITEMS
 
 /** 栏目对应的西文小标，纯装饰（编辑部的栏目索引感） */
 const NAV_KICKERS: Record<string, string> = {
