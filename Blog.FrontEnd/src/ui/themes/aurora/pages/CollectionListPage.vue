@@ -33,7 +33,7 @@ defineProps<{ model: CollectionListPageModel }>()
         >
           <div class="cover">
             <img v-if="c.coverImage" :src="c.coverImage" :alt="c.title" loading="lazy" />
-            <div v-else class="cover-placeholder" />
+            <div v-else class="cover-placeholder cover-fallback" />
           </div>
           <div class="body">
             <h2 class="title">{{ c.title }}</h2>
@@ -84,16 +84,10 @@ defineProps<{ model: CollectionListPageModel }>()
   object-fit: cover;
 }
 
+/* 默认封面：视觉由 theme.css 的 .cover-fallback 提供，这里只撑满封面区域 */
 .cover-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    135deg,
-    var(--gradient-start),
-    var(--gradient-mid),
-    var(--gradient-end)
-  );
-  opacity: 0.85;
 }
 
 .body {

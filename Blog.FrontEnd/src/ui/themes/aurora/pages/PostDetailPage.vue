@@ -48,7 +48,7 @@ defineProps<{ model: PostDetailPageModel }>()
           :style="
             model.post.coverImage ? { backgroundImage: `url(${model.post.coverImage})` } : undefined
           "
-          :class="{ 'no-cover': !model.post.coverImage }"
+          :class="{ 'cover-fallback': !model.post.coverImage }"
         />
         <div class="post-hero-mask" />
         <div class="container post-hero-content">
@@ -168,15 +168,7 @@ defineProps<{ model: PostDetailPageModel }>()
   background-position: center;
 }
 
-.post-hero-bg.no-cover {
-  background: linear-gradient(
-    135deg,
-    var(--gradient-start),
-    var(--gradient-mid),
-    var(--gradient-end)
-  );
-  opacity: 0.75;
-}
+/* 无封面时的头图视觉由 theme.css 的 .cover-fallback 提供（与文章卡片共用） */
 
 /* 遮罩使用主题私有 Token（亮/暗两套值都在 tokens.css 里，不再写 [data-theme] 分支） */
 .post-hero-mask {

@@ -69,3 +69,37 @@
   );
   opacity: 0.7;
 }
+
+/* ---------------------------------------------------------------- 默认封面
+   没有上传封面图时使用的占位视觉。旧方案是整块高饱和「青 → 紫 → 粉」渐变，
+   在卡片列表里过于抢眼，和整体的深色/浅色画布不协调。
+
+   新方案：低饱和的「极光暗纹」——主题底色打底 + 两团弱极光（青/粉，约 20%）
+   + 细网格线做质感；亮色下会自动变淡（全部基于 token 的 color-mix），
+   既保留 aurora 的辨识度，又不会压过标题和正文。
+
+   文章卡片 / 专栏卡片 / 文章详情无封面头图共用这个类。 */
+[data-ui-theme='aurora'] .cover-fallback {
+  background:
+    radial-gradient(
+      120% 130% at 8% -20%,
+      color-mix(in srgb, var(--gradient-start) 20%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      110% 130% at 96% 116%,
+      color-mix(in srgb, var(--gradient-end) 16%, transparent),
+      transparent 60%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--text-strong) 4%, transparent) 0 1px,
+      transparent 1px 30px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--text-strong) 4%, transparent) 0 1px,
+      transparent 1px 30px
+    ),
+    linear-gradient(135deg, var(--bg-sunken), var(--bg-surface));
+}

@@ -215,6 +215,18 @@ Hero/页头背景叠加 2-3 层径向渐变：
 
 组件直接 `background: var(--post-hero-mask)`，不再写 `[data-theme='light']` 分支。
 
+### 7.5 默认封面（`.cover-fallback`）
+
+没有上传封面图时，文章卡片 / 专栏卡片 / 文章详情头图统一使用 `theme.css` 的
+`.cover-fallback`：
+
+- 底色：`--bg-sunken → --bg-surface` 的低对比线性渐变；
+- 极光：左上青、右下粉各一层弱 radial（`color-mix` 约 20%/16%），亮色下自动变淡；
+- 质感：30px 细网格线（`color-mix(--text-strong 4%)`），避免整块死板；
+- 不再使用整块高饱和「青→紫→粉」渐变：默认封面应该退到内容后面，只留 aurora 的氛围。
+
+换配色时不需要改这里：所有颜色都从 Token 派生。
+
 ---
 
 ## 8. 无障碍（WCAG AA）
