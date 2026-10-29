@@ -240,6 +240,17 @@ Hero/页头背景叠加 2-3 层径向渐变：
 
 这是 aurora 专属的装饰；paper 主题保持它自己的报纸版式。
 
+### 7.7 内容背景图
+
+管理端「网站配置 → 内容背景图」维护一个独立的图片列表（后端 `SiteConfigs` 的
+`ContentBackground` Key，JSON 数组，与首页 Hero 的 `HeroBackground` 完全分开）：
+
+- 前台 `PageDecor.vue` 每次加载随机挑一张，用 `position: fixed` 铺满视口；
+- 图片先 `blur(2px)` + 轻微降饱和/压暗，再盖一层主题色遮罩（`--bg-canvas` 78%→88%），
+  保证长文/列表页的正文对比度；
+- 没配置时这一层不渲染，只保留 7.6 的纯色 + 星屑装饰；
+- 首页 Hero 自己的背景图不受影响；本层在 Hero 下方开始可见。
+
 ---
 
 ## 8. 无障碍（WCAG AA）

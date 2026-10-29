@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import { useSiteStore } from '@/stores/site'
+
 /**
- * Aurora 页面背景装饰层（方案 A：极光星屑 + 软云）。
+ * Aurora 页面背景装饰层（方案 A：极光星屑 + 软云，可选内容背景图）。
  *
  * 只出现在公开站，铺在内容后面：首页有全屏 Hero 时基本被遮住，其余页面
  * 用很淡的星屑、软云和点阵让纯色背景不至于空荡。所有元素：
@@ -9,13 +12,45 @@
  *   · 颜色全部来自主题 Token，亮/暗色自动适配；
  *   · 尊重 `prefers-reduced-motion`（视觉上只保留静态层）。
  *
- * 位置和数量刻意克制：星星固定在页面四周，云只放左右下角，中间区域留给内容。
+ * 如果管理端配置了「内容背景图」（独立于首页 Hero 背景），这里会随机挑一张
+ * 铺在最底层，并盖一层主题色遮罩保证正文可读；没配置时保持纯色 + 装饰。
  */
 const stars = ['star-1', 'star-2', 'star-3', 'star-4', 'star-5']
+
+const site = useSiteStore()
+const contentBackgrounds = computed(() => site.config?.contentBackgrounds ?? [])
+const pickedContentBackground = ref('')
+
+/**
+ * 内容背景图：每次加载随机挑一张。
+ * 站点配置是异步拉的，所以用 watch + immediate；列表刷新时只在「当前这张不在新列表里」
+ * 才重新抽，避免站点统计之类的刷新把访客正在看的背景换掉。
+ */
+watch(
+  contentBackgrounds,
+  (list) => {
+    if (!list.length) {
+      pickedContentBackground.value = ''
+      return
+    }
+    if (!list.includes(pickedContentBackground.value)) {
+      pickedContentBackground.value = list[Math.floor(Math.random() * list.length)] ?? ''
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <div class="page-decor" aria-hidden="true">
+    <!-- 内容背景图（管理端可配，独立于首页 Hero）；没有配置时这一层不渲染 -->
+    <div
+      v-if="pickedContentBackground"
+      class="content-bg"
+      :style="{ backgroundImage: `url(${pickedContentBackground})` }"
+    />
+    <div v-if="pickedContentBackground" class="content-bg-mask" />
+
     <svg
       v-for="star in stars"
       :key="star"
@@ -69,6 +104,47 @@ const stars = ['star-1', 'star-2', 'star-3', 'star-4', 'star-5']
       color-mix(in srgb, var(--brand-400) 8%, transparent),
       transparent 68%
     );
+}
+
+/* ---------------------------------------------------------------- 内容背景图 */
+/* 管理端配置了内容背景图时，铺在最底层；轻微模糊 + 压暗，只提供氛围不抢正文 */
+.content-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(2px) saturate(0.9) brightness(0.92);
+  transform: scale(1.02);
+  opacity: 0;
+  animation: content-bg-in 700ms ease forwards;
+}
+
+/* 主题色遮罩：保证正文对比度；同时补上被图片盖住的环境光 */
+.content-bg-mask {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      52vw 42vh at 92% -8%,
+      color-mix(in srgb, var(--accent-500) 10%, transparent),
+      transparent 68%
+    ),
+    radial-gradient(
+      48vw 38vh at 4% 104%,
+      color-mix(in srgb, var(--brand-400) 8%, transparent),
+      transparent 68%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-canvas) 78%, transparent),
+      color-mix(in srgb, var(--bg-canvas) 88%, transparent)
+    );
+}
+
+@keyframes content-bg-in {
+  to {
+    opacity: 1;
+  }
 }
 
 /* 极细点阵：只提供一点纸面质感，不画完整网格，避免和内容争夺注意力 */

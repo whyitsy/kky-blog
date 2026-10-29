@@ -453,6 +453,59 @@ public sealed class MediaUrlValidationTests
         Assert.Equal(two, data!.HeroBackgrounds.ToArray());
     }
 
+    // ------------------------------------------------------------------ 站点配置：内容背景图
+
+    [Theory]
+    [InlineData("""["/api/files/a.png","https://evil.com/x.png"]""")]
+    [InlineData("""["javascript:alert(1)"]""")]
+    [InlineData("""["/api/files/../../etc/passwd"]""")]
+    [InlineData("https://evil.com/x.png")]
+    public async Task 站点配置_内容背景图含非法项_整批被拒(string value)
+    {
+        var token = await AdminAsync();
+        var version = await VersionOfAsync("ContentBackground");
+
+        var (status, code, _, message) = await _api.CallAsync<object>(
+            HttpMethod.Put, "/api/site/config", token,
+            new { key = "ContentBackground", value, version });
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.Equal(Codes.InvalidArgument, code);
+        Assert.Contains("内容背景图", message);
+    }
+
+    [Fact]
+    public async Task 站点配置_内容背景图JSON损坏_报错而不是静默存空()
+    {
+        var token = await AdminAsync();
+        var version = await VersionOfAsync("ContentBackground");
+
+        var (status, code, _, message) = await _api.CallAsync<object>(
+            HttpMethod.Put, "/api/site/config", token,
+            new { key = "ContentBackground", value = "[这不是 JSON", version });
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.Equal(Codes.InvalidArgument, code);
+        Assert.Contains("JSON", message);
+    }
+
+    [Fact]
+    public async Task 站点配置_内容背景图合法数组_放行且按数组读回()
+    {
+        var token = await AdminAsync();
+        var version = await VersionOfAsync("ContentBackground");
+        var two = new[] { GoodUrl, "/api/files/avatar-default.webp" };
+
+        var (status, code, data, message) = await _api.CallAsync<SiteConfigSnapshot>(
+            HttpMethod.Put, "/api/site/config", token,
+            new { key = "ContentBackground", value = System.Text.Json.JsonSerializer.Serialize(two), version });
+
+        Assert.True(status == HttpStatusCode.OK && code == Codes.Ok,
+            $"合法内容背景图数组应放行，实际 status={status} code={code} message={message}");
+
+        Assert.Equal(two, data!.ContentBackgrounds.ToArray());
+    }
+
     // ------------------------------------------------------------------ 读取侧
 
     [Fact]
@@ -464,6 +517,7 @@ public sealed class MediaUrlValidationTests
         Assert.False(string.IsNullOrWhiteSpace(config.LogoName));
         // 读取侧必须永远是数组，前端才能无脑遍历；历史遗留的裸地址由 ParseList 兜住
         Assert.NotNull(config.HeroBackgrounds);
+        Assert.NotNull(config.ContentBackgrounds);
     }
 
     // ------------------------------------------------------------------ 辅助
@@ -524,6 +578,7 @@ public sealed record SiteConfigSnapshot(
     string? SiteLogo,
     List<string> HeroSubtitles,
     List<string> HeroBackgrounds,
+    List<string> ContentBackgrounds,
     DateTimeOffset? FoundingDate,
     Dictionary<string, int> Versions);
 

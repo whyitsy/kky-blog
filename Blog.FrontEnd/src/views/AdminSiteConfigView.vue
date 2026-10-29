@@ -30,6 +30,7 @@ const linkMsg = ref('')
 const versions = ref<Record<string, number>>({})
 const savingBasic = ref(false)
 const uploadingBg = ref(false)
+const uploadingContentBg = ref(false)
 const uploadingLogo = ref(false)
 
 const basic = ref({
@@ -41,6 +42,8 @@ const basic = ref({
   subtitlesText: '',
   /** 首屏背景图（多张，每次随机展示一张）；为空则用内置渐变背景 */
   heroBackgrounds: [] as string[],
+  /** 内容背景图（多张，独立于首屏背景图）；为空则只显示主题底纹与装饰 */
+  contentBackgrounds: [] as string[],
   foundingDate: '',
 })
 
@@ -53,6 +56,7 @@ async function loadConfig() {
     siteLogo: cfg.siteLogo ?? '',
     subtitlesText: (cfg.heroSubtitles ?? []).join('\n'),
     heroBackgrounds: [...(cfg.heroBackgrounds ?? [])],
+    contentBackgrounds: [...(cfg.contentBackgrounds ?? [])],
     foundingDate: cfg.foundingDate ? cfg.foundingDate.slice(0, 10) : '',
   }
 }
@@ -120,6 +124,35 @@ function removeBackground(index: number) {
   basic.value.heroBackgrounds = basic.value.heroBackgrounds.filter((_, i) => i !== index)
 }
 
+/** 上传内容背景图：与首屏背景图分开维护，互不覆盖 */
+async function onPickContentBackground(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    errorMsg.value = '请选择图片文件'
+    input.value = ''
+    return
+  }
+
+  uploadingContentBg.value = true
+  errorMsg.value = ''
+  try {
+    basic.value.contentBackgrounds = [...basic.value.contentBackgrounds, await uploadFile(file)]
+    basicMsg.value = '内容背景图上传成功，记得点击保存'
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : '上传失败'
+  } finally {
+    uploadingContentBg.value = false
+    input.value = ''
+  }
+}
+
+function removeContentBackground(index: number) {
+  basic.value.contentBackgrounds = basic.value.contentBackgrounds.filter((_, i) => i !== index)
+}
+
 async function saveBasic() {
   if (!basic.value.siteName.trim()) {
     errorMsg.value = '站点名称不能为空'
@@ -150,12 +183,18 @@ async function saveBasic() {
       basic.value.foundingDate ? `${basic.value.foundingDate}T00:00:00+08:00` : '',
       versionOf(SiteConfigKey.FoundingDate),
     )
-    // 背景图存 JSON 数组；后端会逐项做 /api/files 白名单校验，有一项不合法就整批拒绝
-    // 最后一项的响应即包含全部配置项的最新版本号
-    const latest = await updateSiteConfig(
+    // 背景图存 JSON 数组；后端会逐项做 /api/files 白名单校验，有一项不合法就整批拒绝。
+    // 首屏背景图与内容背景图是两个独立的配置项，分别提交。
+    await updateSiteConfig(
       SiteConfigKey.HeroBackground,
       JSON.stringify(basic.value.heroBackgrounds),
       versionOf(SiteConfigKey.HeroBackground),
+    )
+    // 最后一项的响应即包含全部配置项的最新版本号
+    const latest = await updateSiteConfig(
+      SiteConfigKey.ContentBackground,
+      JSON.stringify(basic.value.contentBackgrounds),
+      versionOf(SiteConfigKey.ContentBackground),
     )
     versions.value = latest.versions ?? {}
     basicMsg.value = '已保存'
@@ -267,7 +306,7 @@ onMounted(load)
       <article class="panel panel-stack">
         <header class="panel-head">
           <h2 class="panel-title">基本配置</h2>
-          <span class="panel-hint">首屏 Hero 与 Footer 的数据来源</span>
+          <span class="panel-hint">首屏 Hero、内容背景与 Footer 的数据来源</span>
         </header>
 
         <p v-if="basicMsg" class="banner banner-success">{{ basicMsg }}</p>
@@ -341,6 +380,32 @@ onMounted(load)
           </span>
         </div>
 
+        <div class="field">
+          <span class="label">内容背景图</span>
+          <div class="bg-list">
+            <div v-for="(bg, index) in basic.contentBackgrounds" :key="bg" class="bg-item">
+              <img :src="bg" alt="内容背景预览" />
+              <button type="button" class="link link-danger" @click="removeContentBackground(index)">
+                删除
+              </button>
+            </div>
+            <label class="media-add bg-add">
+              {{ uploadingContentBg ? '上传中...' : '+ 上传' }}
+              <input
+                type="file"
+                :accept="ACCEPT_IMAGE"
+                hidden
+                :disabled="uploadingContentBg"
+                @change="onPickContentBackground"
+              />
+            </label>
+          </div>
+          <span class="hint">
+            独立于首屏背景图：展示在 Hero 下方和各内页内容区，作为整页背景；可上传多张（最多
+            20 张），每次进入随机展示一张；不设置则保留纯色 + 极光装饰。
+          </span>
+        </div>
+
         <label class="field narrow">
           <span class="label">建站日期</span>
           <input v-model="basic.foundingDate" class="input" type="date" />
@@ -348,7 +413,11 @@ onMounted(load)
         </label>
 
         <footer class="panel-actions">
-          <button class="btn btn-primary" :disabled="savingBasic || uploadingBg" @click="saveBasic">
+          <button
+            class="btn btn-primary"
+            :disabled="savingBasic || uploadingBg || uploadingContentBg"
+            @click="saveBasic"
+          >
             {{ savingBasic ? '保存中...' : '保存基本配置' }}
           </button>
         </footer>

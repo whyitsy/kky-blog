@@ -53,6 +53,7 @@ namespace Blog.Application.Services.Site
                 ParseSubtitles(dict.GetValueOrDefault(SiteConfigKeys.HeroSubtitles)),
                 // 读取侧宽容：历史上这里存的是单个裸地址，MediaPath.ParseList 会把它当成单元素列表
                 MediaPath.ParseList(dict.GetValueOrDefault(SiteConfigKeys.HeroBackground)),
+                MediaPath.ParseList(dict.GetValueOrDefault(SiteConfigKeys.ContentBackground)),
                 DateTimeOffset.TryParse(dict.GetValueOrDefault(SiteConfigKeys.FoundingDate), out var founding)
                     ? founding : null,
                 items.ToDictionary(i => i.Key, i => i.Version, StringComparer.OrdinalIgnoreCase));
@@ -108,6 +109,9 @@ namespace Blog.Application.Services.Site
 
             if (key.Equals(SiteConfigKeys.HeroBackground, StringComparison.OrdinalIgnoreCase))
                 return MediaPath.ValidateJsonList(value, "首屏背景图");
+
+            if (key.Equals(SiteConfigKeys.ContentBackground, StringComparison.OrdinalIgnoreCase))
+                return MediaPath.ValidateJsonList(value, "内容背景图");
 
             return value;
         }

@@ -84,6 +84,7 @@ export const SiteConfigKey = {
   HeroSubtitles: 'HeroSubtitles',
   FoundingDate: 'FoundingDate',
   HeroBackground: 'HeroBackground',
+  ContentBackground: 'ContentBackground',
 } as const
 
 export type SiteConfigKeyValue = (typeof SiteConfigKey)[keyof typeof SiteConfigKey]
@@ -100,6 +101,11 @@ export interface SiteConfigDto {
    * 后端 Value 存 JSON 数组（Key 名保持单数是为了不动已有的配置行）。
    */
   heroBackgrounds: string[]
+  /**
+   * 内容背景图（多张）。独立于首屏背景图，用于 Hero 下方 / 各内页的整页背景；
+   * 每次进入随机展示一张；为空则只显示主题底纹与装饰。
+   */
+  contentBackgrounds: string[]
   foundingDate: string | null
   /** 各配置项当前的乐观锁版本号（Key -> Version）；缺失的 Key 表示尚未创建，保存时版本号传 0 */
   versions: Record<string, number>
