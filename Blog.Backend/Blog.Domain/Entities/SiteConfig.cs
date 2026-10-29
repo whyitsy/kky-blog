@@ -60,5 +60,14 @@ namespace Blog.Domain.Entities
         /// 读取侧对裸地址仍然兼容，见 MediaPath.ParseList）。</para>
         /// </summary>
         public const string HeroBackground = "HeroBackground";
+
+        /// <summary>
+        /// 内容背景图（JSON 数组）。独立于 <see cref="HeroBackground"/>：
+        /// 首页 Hero 仍只用 HeroBackground；这里用于 Hero 下方以及各内页的整页背景，
+        /// 可配置多张，前端每次进入随机一张；为空则不渲染图片层。
+        /// <para>与 HeroBackground 分开是为了让「开屏图」和「内容区氛围图」可以各配各的，
+        /// 不会因为换了 Hero 图就把内页背景一起换掉。</para>
+        /// </summary>
+        public const string ContentBackground = "ContentBackground";
     }
 }

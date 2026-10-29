@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import SiteLogo from '@/ui/components/SiteLogo.vue'
+import SiteFiling from '@/ui/components/SiteFiling.vue'
 import {
   PUBLIC_NAV_ITEMS,
   isNavItemActive,
@@ -9,7 +10,6 @@ import {
 } from '@/ui/contracts/nav'
 import { useSearchStore } from '@/stores/app'
 import { useSiteStore } from '@/stores/site'
-import { useAuthStore } from '@/stores/auth'
 import { pad2 } from '../format'
 
 /**
@@ -23,13 +23,10 @@ import { pad2 } from '../format'
 const route = useRoute()
 const site = useSiteStore()
 const search = useSearchStore()
-const auth = useAuthStore()
 
 const year = new Date().getFullYear()
-// 与 aurora 一致：adminOnly 入口只对管理员展示（匿名不显示「管理」）
-const navItems = computed(() =>
-  PUBLIC_NAV_ITEMS.filter((item) => !item.adminOnly || auth.isAdmin),
-)
+// 与 aurora 一致：「管理」入口对所有访客展示，登录状态由路由守卫处理
+const navItems = PUBLIC_NAV_ITEMS
 
 /** 栏目对应的西文小标，纯装饰（编辑部的栏目索引感） */
 const NAV_KICKERS: Record<string, string> = {
@@ -136,6 +133,7 @@ function kicker(key: string): string {
 
           <p class="pp-copyright">© {{ year }} {{ siteName }}</p>
           <p class="pp-colophon">墨纸 · Paper Edition</p>
+          <SiteFiling class="pp-filing" />
         </div>
       </div>
     </aside>
@@ -144,6 +142,10 @@ function kicker(key: string): string {
       <main class="pp-main">
         <slot />
       </main>
+      <!-- 窄屏侧栏页脚会隐藏，备案信息单独放在内容区底部 -->
+      <div class="pp-filing-mobile">
+        <SiteFiling />
+      </div>
     </div>
   </div>
 </template>
@@ -375,6 +377,12 @@ function kicker(key: string): string {
   color: var(--border-strong);
 }
 
+/* 备案信息：侧栏较窄，左对齐并缩小一档字号 */
+.pp-filing {
+  justify-content: flex-start;
+  font-size: 11px;
+}
+
 /* ---------------------------------------------------------------- 内容区 */
 .pp-content {
   min-height: 100vh;
@@ -386,6 +394,10 @@ function kicker(key: string): string {
   max-width: var(--pp-content-max);
   margin: 0 auto;
   padding: var(--space-12) var(--space-12) var(--space-24);
+}
+
+.pp-filing-mobile {
+  display: none;
 }
 
 /* ---------------------------------------------------------------- 窄屏：顶部横条 */
@@ -490,6 +502,13 @@ function kicker(key: string): string {
 
   .pp-main {
     padding: var(--space-8) var(--space-4) var(--space-16);
+  }
+
+  /* 侧栏页脚已隐藏，备案信息改在内容区底部展示 */
+  .pp-filing-mobile {
+    display: flex;
+    justify-content: center;
+    padding: 0 var(--space-4) var(--space-10);
   }
 }
 

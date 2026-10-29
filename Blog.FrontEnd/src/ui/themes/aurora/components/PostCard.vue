@@ -20,7 +20,7 @@ const publishDate = computed(() => {
   <RouterLink :to="`/post/${post.id}`" class="post-card card">
     <div class="cover">
       <img v-if="post.coverImage" :src="post.coverImage" :alt="post.title" loading="lazy" />
-      <div v-else class="cover-placeholder" />
+      <div v-else class="cover-placeholder cover-fallback" />
       <!-- 分类：可点击，跳到该分类的筛选列表（用全局 .category-badge 与标签徽章区分） -->
       <RouterLink
         v-if="post.categoryId"
@@ -85,16 +85,11 @@ const publishDate = computed(() => {
   transform: scale(1.04);
 }
 
+/* 默认封面：视觉由 theme.css 的 .cover-fallback 提供（低饱和极光暗纹），
+   这里只负责把占位块撑满封面区域 */
 .cover-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    135deg,
-    var(--gradient-start),
-    var(--gradient-mid),
-    var(--gradient-end)
-  );
-  opacity: 0.85;
 }
 
 /* 只负责「钉在封面左上角」的定位；

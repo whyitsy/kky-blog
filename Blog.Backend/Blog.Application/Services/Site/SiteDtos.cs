@@ -11,6 +11,7 @@ namespace Blog.Application.Services.Site
         string? SiteLogo,
         List<string> HeroSubtitles,
         List<string> HeroBackgrounds,
+        List<string> ContentBackgrounds,
         DateTimeOffset? FoundingDate,
         Dictionary<string, int> Versions
     );

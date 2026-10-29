@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useSearchStore } from '@/stores/app'
 import { useSiteStore } from '@/stores/site'
-import { useAuthStore } from '@/stores/auth'
 import { DEFAULT_SITE_NAME } from '@/utils/site'
 import SiteLogo from '@/ui/components/SiteLogo.vue'
 import {
@@ -16,17 +15,15 @@ import {
  * Aurora 顶部导航：固定 + 玻璃拟态。
  *
  * - 导航入口来自 `@/ui/contracts/nav` 的 `PUBLIC_NAV_ITEMS`（主题只决定「怎么排」）；
+ *   「管理」入口对所有人展示，未登录点击后再由路由守卫带到登录页；
  * - 滚动超过 40px 才加 `.glass`，首页 Hero 上保持透明；
  * - 主题/配色切换由 DefaultLayout 挂载的全局 ThemeSwitcher 负责，这里只留搜索按钮。
  */
 const route = useRoute()
 const search = useSearchStore()
 const site = useSiteStore()
-const auth = useAuthStore()
 
-const navItems = computed<PublicNavItem[]>(() =>
-  PUBLIC_NAV_ITEMS.filter((item) => !item.adminOnly || auth.isAdmin),
-)
+const navItems = PUBLIC_NAV_ITEMS
 
 const siteName = computed(() => site.config?.siteName || DEFAULT_SITE_NAME)
 

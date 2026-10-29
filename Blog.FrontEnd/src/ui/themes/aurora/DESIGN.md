@@ -215,6 +215,42 @@ Hero/页头背景叠加 2-3 层径向渐变：
 
 组件直接 `background: var(--post-hero-mask)`，不再写 `[data-theme='light']` 分支。
 
+### 7.5 默认封面（`.cover-fallback`）
+
+没有上传封面图时，文章卡片 / 专栏卡片 / 文章详情头图统一使用 `theme.css` 的
+`.cover-fallback`：
+
+- 底色：`--bg-sunken → --bg-surface` 的低对比线性渐变；
+- 极光：左上青、右下粉各一层弱 radial（`color-mix` 约 20%/16%），亮色下自动变淡；
+- 质感：30px 细网格线（`color-mix(--text-strong 4%)`），避免整块死板；
+- 不再使用整块高饱和「青→紫→粉」渐变：默认封面应该退到内容后面，只留 aurora 的氛围。
+
+换配色时不需要改这里：所有颜色都从 Token 派生。
+
+### 7.6 页面背景装饰（`PageDecor.vue`）
+
+除首页 Hero 外，其余页面的背景是纯色画布。`chrome/PageDecor.vue` 在内容后面铺一层
+很淡的固定装饰，避免页面显得空：
+
+- 5 颗四角星屑（青/粉/紫交替，8s 缓慢闪烁）+ 2 朵软云（左下青、右中粉，30s 左右漂移）；
+- 一层 30px 点阵（约 2% 可见度）提供纸面质感；
+- 两团大范围环境光（右上紫、左下青，10%/8%），补充 body 极光光晕之外的层次；
+- `aria-hidden` + `pointer-events: none`，z-index 0；内容区/页脚抬到 1；
+- 窄屏只保留少量星星和一朵云，并尊重 `prefers-reduced-motion`。
+
+这是 aurora 专属的装饰；paper 主题保持它自己的报纸版式。
+
+### 7.7 内容背景图
+
+管理端「网站配置 → 内容背景图」维护一个独立的图片列表（后端 `SiteConfigs` 的
+`ContentBackground` Key，JSON 数组，与首页 Hero 的 `HeroBackground` 完全分开）：
+
+- 前台 `PageDecor.vue` 每次加载随机挑一张，用 `position: fixed` 铺满视口；
+- 图片先 `blur(2px)` + 轻微降饱和/压暗，再盖一层主题色遮罩（`--bg-canvas` 78%→88%），
+  保证长文/列表页的正文对比度；
+- 没配置时这一层不渲染，只保留 7.6 的纯色 + 星屑装饰；
+- 首页 Hero 自己的背景图不受影响；本层在 Hero 下方开始可见。
+
 ---
 
 ## 8. 无障碍（WCAG AA）
