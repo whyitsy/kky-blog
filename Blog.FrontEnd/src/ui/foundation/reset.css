@@ -90,7 +90,18 @@ h6 {
   color: var(--text-strong);
 }
 
-/* ---------- 滚动条 ---------- */
+/* ---------- 滚动条 ----------
+   视口滚动条完全隐藏（需求：首屏右侧不要出现滚动条），页面仍可正常滚动。
+   内部可滚动容器（如文章目录）保留细滚动条，避免长列表不可见。 */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* 旧 Edge */
+}
+html::-webkit-scrollbar {
+  display: none; /* Chromium / Safari */
+}
+
+/* 内部滚动容器的滚动条 */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
