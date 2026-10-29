@@ -911,3 +911,37 @@ a.category-badge:hover {
   flex-direction: column;
   gap: var(--space-3);
 }
+
+/* ---------------------------------------------------------------- 正文公式 */
+/* KaTeX 的独立公式可能比正文栏宽：横向滚动，避免撑破布局 */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overflow-wrap: normal;
+  padding: var(--space-1) 0;
+}
+
+/* 公式里的 \text{中文}：KaTeX 默认用数学字体，很多环境没有中文字形；
+   换成正文 sans 字体栈（含 Noto Sans SC）避免方框 */
+.katex .text {
+  font-family: var(--font-sans);
+}
+
+/* 公式渲染失败时的兜底：以代码样式展示源码，至少读者能看到内容 */
+.math-fallback {
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
+  color: var(--status-warning);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+}
+
+.math-fallback-display {
+  display: block;
+  margin: var(--space-4) 0;
+  padding: var(--space-3);
+  text-align: center;
+  overflow-x: auto;
+}

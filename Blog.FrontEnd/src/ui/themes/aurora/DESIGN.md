@@ -209,10 +209,11 @@ Hero/页头背景叠加 2-3 层径向渐变：
 
 ### 7.4 主题私有遮罩 Token
 
-- `--hero-mask`：首页 Hero 背景图遮罩（无背景图时不使用）。
 - `--post-hero-mask`：文章头图遮罩。
+- 首页 Hero 不再使用整屏遮罩：背景图直接铺满，文字可读性由局部 `text-shadow`
+  （副标题）和胶囊底色（下滑按钮）保证；导航栏在未滚动时用主题底色渐隐层托底。
 
-组件直接 `background: var(--hero-mask)`，不再写 `[data-theme='light']` 分支。
+组件直接 `background: var(--post-hero-mask)`，不再写 `[data-theme='light']` 分支。
 
 ---
 

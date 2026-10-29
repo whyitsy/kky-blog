@@ -329,6 +329,24 @@ defineProps<{ model: PostDetailPageModel }>()
   line-height: 1.75;
   color: var(--text-default);
   overflow-wrap: break-word;
+  /* 正文面板：与画布底色/极光光晕拉开层次，长文阅读时不至于「字和背景糊在一起」 */
+  padding: var(--space-8) var(--space-10);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 767px) {
+  .article-body {
+    padding: var(--space-6) var(--space-5);
+  }
+}
+
+/* 面板内第一段标题不再叠加排版上边距（否则面板顶部会显得很空） */
+.article-body :deep(h2:first-child),
+.article-body :deep(h3:first-child) {
+  margin-top: 0;
 }
 
 .article-body :deep(h2) {

@@ -6,6 +6,8 @@
  * 会被忽略，而不是报错 —— 导入是「尽量帮用户填好」，不是「校验 YAML 合规」。
  */
 
+import { mapMarkdownTextChunks } from './markdownFences.ts'
+
 export type FrontMatterValue = string | string[] | boolean
 
 export interface ParsedMarkdownFile {
@@ -155,6 +157,36 @@ const COVER_MAX = 500
 const OWNED_PREFIX = '/api/files/'
 
 /**
+ * 清理导出正文里的内联样式包裹。
+ *
+ * 语雀的 Markdown 导出会把「带颜色的文字」转成
+ * `<font style="color:rgb(15, 17, 21);">…</font>`（不是导出选项的问题，
+ * 是它的 Markdown 序列化方式）。站点渲染时虽然已经会剥掉 style、拆掉 `<font>`，
+ * 但源文件里留着这些标签，在编辑器里看很脏，而且以后换渲染器也可能漏掉。
+ * 导入时先清一遍，入库的正文就是干净的 Markdown。
+ *
+ * 规则（只作用于围栏代码块之外的文本）：
+ *   · `<font>` 标签 unwrap（保留文字）；
+ *   · 其它 HTML 标签保留，但去掉 `style` 属性。
+ * 代码块原样保留：示例代码里的 `<font>` 是内容，不是样式。
+ */
+export function cleanExportedMarkdown(markdown: string): string {
+  return mapMarkdownTextChunks(markdown, (text) => {
+    return text
+      .replace(/<font\b[^>]*>/gi, '')
+      .replace(/<\/font\s*>/gi, '')
+      .replace(
+        /<([A-Za-z][\w:-]*)((?:"[^"]*"|'[^']*'|[^'">])*)>/g,
+        (match, tag: string, attrs: string) => {
+          if (!/\sstyle\s*=/i.test(attrs)) return match
+          const withoutStyle = attrs.replace(/\s+style\s*=\s*("[^"]*"|'[^']*')/gi, '')
+          return `<${tag}${withoutStyle}>`
+        },
+      )
+  })
+}
+
+/**
  * 把一份 `.md` 文件映射成「要填到表单里的字段」。
  *
  * 纯函数、无副作用：不创建标签/分类，也不发请求。
@@ -187,7 +219,7 @@ export function buildImportPlan(input: BuildImportPlanInput): MarkdownImportPlan
   return {
     title,
     summary,
-    content: parsed.content,
+    content: cleanExportedMarkdown(parsed.content),
     categoryId,
     tagIds,
     coverImage,

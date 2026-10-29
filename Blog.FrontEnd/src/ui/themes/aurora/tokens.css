@@ -2,7 +2,7 @@
    Aurora · 极光霓虹主题 Token
    ----------------------------------------------------------------------------
    暗色为默认配色；亮色为第二配色。Token 契约见 src/ui/foundation/tokens.css。
-   除契约 Token 外，本主题还定义了私有 Token（--hero-mask / --post-hero-mask），
+   除契约 Token 外，本主题还定义了私有 Token（--post-hero-mask），
    只允许本主题的组件消费。
    ========================================================================== */
 
@@ -67,13 +67,7 @@
     radial-gradient(1000px 700px at 92% -4%, rgba(124, 92, 255, 0.14), transparent 66%),
     radial-gradient(1000px 760px at 50% 118%, rgba(255, 0, 153, 0.07), transparent 62%);
 
-  /* 私有 Token：首屏/文章头图遮罩 */
-  --hero-mask: linear-gradient(
-    180deg,
-    rgba(19, 20, 26, 0.55) 0%,
-    rgba(19, 20, 26, 0.35) 45%,
-    var(--bg-canvas) 100%
-  );
+  /* 私有 Token：文章头图遮罩（首页 Hero 已不再使用整屏遮罩） */
   --post-hero-mask: linear-gradient(180deg, rgba(19, 20, 26, 0.3), var(--bg-canvas) 96%);
 }
 
@@ -137,12 +131,6 @@
     radial-gradient(1000px 700px at 92% -4%, rgba(233, 55, 150, 0.08), transparent 66%),
     radial-gradient(1000px 760px at 50% 118%, rgba(84, 51, 255, 0.07), transparent 62%);
 
-  /* 私有 Token：亮色下降低光晕强度，避免过曝 */
-  --hero-mask: linear-gradient(
-    180deg,
-    rgba(241, 243, 249, 0.45) 0%,
-    rgba(241, 243, 249, 0.3) 45%,
-    var(--bg-canvas) 100%
-  );
+  /* 私有 Token：文章头图遮罩（亮色下降低强度，避免过曝） */
   --post-hero-mask: linear-gradient(180deg, rgba(241, 243, 249, 0.2), var(--bg-canvas) 96%);
 }

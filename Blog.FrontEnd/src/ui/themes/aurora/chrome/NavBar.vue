@@ -96,6 +96,19 @@ function isActive(item: PublicNavItem): boolean {
     box-shadow var(--transition-normal);
 }
 
+/* 未滚动时导航压在 Hero 照片上：铺一层与主题底色同源的渐隐底色。
+   否则亮色模式（或浅色封面图）下，深色文字会淹没在照片里；
+   滚动后交给全局 .glass 的毛玻璃实底接管。
+   透明度刻意压得比较低：只在文字周围托底，不要变成第二层整屏遮罩。 */
+.navbar:not(.glass) {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-canvas) 72%, transparent) 0%,
+    color-mix(in srgb, var(--bg-canvas) 40%, transparent) 60%,
+    transparent 100%
+  );
+}
+
 .navbar-inner {
   display: flex;
   align-items: center;

@@ -8,10 +8,13 @@ import SocialIcon from '@/ui/components/SocialIcon.vue'
  * Aurora 首屏 Hero：背景图/极光渐变 + 渐变标题 + 打字机副标题 + 社交入口。
  *
  * 背景图与内置渐变**二选一**（见模板）：
- *   · 抽到图 → 渲染 .hero-bg + .hero-mask，不渲染 .aurora-blobs
- *   · 列表为空 → 不渲染图片层与遮罩，只留 .aurora-blobs 的渐变
- * 两者条件必须互斥：三个层都是 position:absolute 且同 z-index，同时存在会按 DOM 顺序
+ *   · 抽到图 → 渲染 .hero-bg，不渲染 .aurora-blobs
+ *   · 列表为空 → 不渲染图片层，只留 .aurora-blobs 的渐变
+ * 两者条件必须互斥：两层都是 position:absolute 且同 z-index，同时存在会按 DOM 顺序
  * 把渐变叠在照片上，观感发花。
+ *
+ * 背景图不再叠整屏遮罩（此前的 .hero-mask 会把图片底部压暗到页面底色，
+ * 与页面背景的极光光晕对不上）；文字可读性靠局部 text-shadow / 胶囊底色保证。
  */
 const site = useSiteStore()
 
@@ -50,17 +53,15 @@ function scrollToList() {
 
 <template>
   <section class="hero">
-    <!-- 背景图与内置渐变二选一：配了图只留图 + 遮罩；没配图才用 .aurora-blobs 的渐变本体 -->
+    <!-- 背景图与内置渐变二选一：配了图只留图；没配图才用 .aurora-blobs 的渐变本体 -->
     <div
       v-if="pickedBackground"
       class="hero-bg"
       :style="{ backgroundImage: `url(${pickedBackground})` }"
     />
-    <div v-if="pickedBackground" class="hero-mask" />
     <div v-else class="aurora-blobs" />
 
     <div class="hero-content">
-      <p class="hero-eyebrow">AURORA · BLOG</p>
       <h1 class="hero-title gradient-text">{{ site.config?.siteName || DEFAULT_SITE_NAME }}</h1>
 
       <p class="hero-subtitle">
@@ -121,13 +122,6 @@ function scrollToList() {
   transform: scale(1.05);
 }
 
-/* 遮罩使用主题私有 Token（亮/暗两套值都在 tokens.css 里，不再写 [data-theme] 分支） */
-.hero-mask {
-  position: absolute;
-  inset: 0;
-  background: var(--hero-mask);
-}
-
 .hero-content {
   position: relative;
   z-index: 2;
@@ -136,13 +130,6 @@ function scrollToList() {
   align-items: center;
   text-align: center;
   padding: 0 var(--space-6);
-}
-
-.hero-eyebrow {
-  font: var(--text-caption);
-  letter-spacing: 4px;
-  color: var(--text-muted);
-  margin-bottom: var(--space-4);
 }
 
 .hero-title {
@@ -157,8 +144,11 @@ function scrollToList() {
   align-items: baseline;
   min-height: 28px;
   font-size: 17px;
-  color: var(--text-default);
-  text-shadow: 0 1px 8px color-mix(in srgb, var(--bg-canvas) 60%, transparent);
+  color: var(--text-strong);
+  /* 没有整屏遮罩后，用与主题底色同源的柔光保证照片上的可读性 */
+  text-shadow:
+    0 1px 2px color-mix(in srgb, var(--bg-canvas) 70%, transparent),
+    0 0 22px color-mix(in srgb, var(--bg-canvas) 55%, transparent);
 }
 
 .tw-cursor {
@@ -179,13 +169,14 @@ function scrollToList() {
   border: 3px solid var(--border-default);
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-default);
-  background: color-mix(in srgb, var(--text-muted) 25%, transparent);
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--bg-canvas) 55%, transparent);
   backdrop-filter: blur(6px);
   animation: float-btn 2.4s ease-in-out infinite;
   transition:
     border-color var(--transition-fast),
-    color var(--transition-fast);
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .scroll-down:hover {
