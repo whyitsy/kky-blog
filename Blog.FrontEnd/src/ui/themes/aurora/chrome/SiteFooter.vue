@@ -3,9 +3,10 @@ import { computed } from 'vue'
 import { useSiteStore } from '@/stores/site'
 import { DEFAULT_SITE_NAME } from '@/utils/site'
 import SiteLogo from '@/ui/components/SiteLogo.vue'
+import SiteFiling from '@/ui/components/SiteFiling.vue'
 
 /**
- * Aurora 页脚：品牌信息 + 渐变分隔线 + 站点统计。
+ * Aurora 页脚：品牌信息 + 渐变分隔线 + 站点统计 + 备案信息。
  * 渐变分隔线复用主题全局装饰 `.gradient-line`（theme.css），不再重复定义。
  */
 const site = useSiteStore()
@@ -50,6 +51,11 @@ function formatViews(n: number) {
           <span class="stat-label">{{ item.label }}</span>
         </div>
       </div>
+    </div>
+
+    <!-- 备案信息：ICP 备案号 + 公安联网备案（审核通过前不渲染） -->
+    <div class="container footer-filing">
+      <SiteFiling />
     </div>
   </footer>
 </template>
@@ -109,5 +115,12 @@ function formatViews(n: number) {
 .stat-label {
   font: var(--text-caption);
   color: var(--text-subtle);
+}
+
+/* 备案信息居中放在页脚最底部，字号/颜色统一由 SiteFiling 组件控制 */
+.footer-filing {
+  display: flex;
+  justify-content: center;
+  padding-bottom: var(--space-6);
 }
 </style>

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import SiteLogo from '@/ui/components/SiteLogo.vue'
+import SiteFiling from '@/ui/components/SiteFiling.vue'
 import {
   PUBLIC_NAV_ITEMS,
   isNavItemActive,
@@ -136,6 +137,7 @@ function kicker(key: string): string {
 
           <p class="pp-copyright">© {{ year }} {{ siteName }}</p>
           <p class="pp-colophon">墨纸 · Paper Edition</p>
+          <SiteFiling class="pp-filing" />
         </div>
       </div>
     </aside>
@@ -144,6 +146,10 @@ function kicker(key: string): string {
       <main class="pp-main">
         <slot />
       </main>
+      <!-- 窄屏侧栏页脚会隐藏，备案信息单独放在内容区底部 -->
+      <div class="pp-filing-mobile">
+        <SiteFiling />
+      </div>
     </div>
   </div>
 </template>
@@ -375,6 +381,12 @@ function kicker(key: string): string {
   color: var(--border-strong);
 }
 
+/* 备案信息：侧栏较窄，左对齐并缩小一档字号 */
+.pp-filing {
+  justify-content: flex-start;
+  font-size: 11px;
+}
+
 /* ---------------------------------------------------------------- 内容区 */
 .pp-content {
   min-height: 100vh;
@@ -386,6 +398,10 @@ function kicker(key: string): string {
   max-width: var(--pp-content-max);
   margin: 0 auto;
   padding: var(--space-12) var(--space-12) var(--space-24);
+}
+
+.pp-filing-mobile {
+  display: none;
 }
 
 /* ---------------------------------------------------------------- 窄屏：顶部横条 */
@@ -490,6 +506,13 @@ function kicker(key: string): string {
 
   .pp-main {
     padding: var(--space-8) var(--space-4) var(--space-16);
+  }
+
+  /* 侧栏页脚已隐藏，备案信息改在内容区底部展示 */
+  .pp-filing-mobile {
+    display: flex;
+    justify-content: center;
+    padding: 0 var(--space-4) var(--space-10);
   }
 }
 
