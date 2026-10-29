@@ -1,5 +1,9 @@
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
+// KaTeX 的字体/排版只服务于公式。放在这里（而不是 main.ts）让 Vite 把样式
+// 拆进文章详情页的懒加载 chunk，首页/列表页不必为公式多下载一份 CSS。
+import 'katex/dist/katex.min.css'
+import { protectMath, restoreMath } from './markdownMath.ts'
 
 /**
  * Markdown → 安全的 HTML。
@@ -33,6 +37,12 @@ import { marked } from 'marked'
  *
  * `<span>` / `<div>` 不做 unwrap：它们可能是作者有意留下的锚点结构，
  * 而 style 已经被剥掉，留着也不会再干扰主题。
+ *
+ * <h3>公式</h3>
+ * 语雀导出的正文里，LaTeX 公式是 `$...$` / `$$...$$` 的纯文本。marked 不认公式，
+ * 直接渲染会原样显示源码；而且 `_`、`\\` 还会被 Markdown 的语法吃掉。这里在
+ * parse **之前**把公式换成占位符，sanitize **之后**再换回 KaTeX 的 HTML ——
+ * 顺序原因和 XSS 边界见 `markdownMath.ts` 文件头。
  */
 
 let hooksRegistered = false
@@ -63,13 +73,19 @@ export function renderMarkdown(content: string): string {
 
   registerHooks()
 
-  // 用 marked 的同步模式：异步模式返回 Promise，v-html 拿不到字符串
-  const raw = marked.parse(content, { async: false }) as string
+  // 先把公式换成占位符：marked 不会动它，后面的 sanitize 也不会
+  const { text, formulas } = protectMath(content)
 
-  return DOMPurify.sanitize(raw, {
+  // 用 marked 的同步模式：异步模式返回 Promise，v-html 拿不到字符串
+  const raw = marked.parse(text, { async: false }) as string
+
+  const clean = DOMPurify.sanitize(raw, {
     // 标题锚点：目录（TOC）靠 id 跳转，DOMPurify 默认会把它剥掉
     ADD_ATTR: ['id'],
     // 内联样式一律不放行，理由见文件头注释
     FORBID_ATTR: ['style'],
   })
+
+  // KaTeX 的输出由可信库生成，放在净化之后注入，避免被 DOMPurify 拆散结构
+  return restoreMath(clean, formulas)
 }
