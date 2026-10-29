@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import NavBar from './NavBar.vue'
 import SiteFooter from './SiteFooter.vue'
+import PageDecor from './PageDecor.vue'
 
 /**
  * Aurora 主题外壳：固定玻璃导航 + 内容插槽 + 页脚。
@@ -21,6 +22,8 @@ const flushMain = computed(() => route.name === 'home')
 
 <template>
   <div class="shell">
+    <!-- 极光星屑 + 软云：铺在内容后面，给非 Hero 页面补充背景层次 -->
+    <PageDecor />
     <NavBar />
 
     <main class="shell-main" :class="{ 'shell-main--flush': flushMain }">
@@ -37,6 +40,13 @@ const flushMain = computed(() => route.name === 'home')
   flex-direction: column;
   flex: 1;
   min-height: 100vh;
+}
+
+/* PageDecor 是 fixed + z-index:0；主内容与页脚抬到 1，保证装饰只出现在背景层 */
+.shell-main,
+.site-footer {
+  position: relative;
+  z-index: 1;
 }
 
 .shell-main {
