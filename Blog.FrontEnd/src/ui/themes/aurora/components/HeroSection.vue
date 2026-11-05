@@ -2,10 +2,9 @@
 import { computed, ref, watch } from 'vue'
 import { useSiteStore } from '@/stores/site'
 import { DEFAULT_SITE_NAME } from '@/utils/site'
-import SocialIcon from '@/ui/components/SocialIcon.vue'
 
 /**
- * Aurora 首屏 Hero：背景图/极光渐变 + 渐变标题 + 打字机副标题 + 社交入口。
+ * Aurora 首屏 Hero：背景图/极光渐变 + 渐变标题 + 打字机副标题 + 向下翻阅入口。
  *
  * 背景图与内置渐变**二选一**（见模板）：
  *   · 抽到图 → 渲染 .hero-bg，不渲染 .aurora-blobs
@@ -15,12 +14,14 @@ import SocialIcon from '@/ui/components/SocialIcon.vue'
  *
  * 背景图不再叠整屏遮罩（此前的 .hero-mask 会把图片底部压暗到页面底色，
  * 与页面背景的极光光晕对不上）；文字可读性靠局部 text-shadow / 胶囊底色保证。
+ *
+ * 社交入口原本固定在首屏底部，现已收进首页侧栏的「关于本站」卡片（见 HomePage.vue）：
+ * 首屏留给站点名与一句话介绍，视野更干净。
  */
 const site = useSiteStore()
 
 const subtitles = computed(() => site.config?.heroSubtitles ?? [])
 const backgrounds = computed(() => site.config?.heroBackgrounds ?? [])
-const visibleLinks = computed(() => site.socialLinks.filter((l) => l.isVisible))
 
 /**
  * 首屏背景：从后台配置的多张图里**随机挑一张**。
@@ -87,19 +88,6 @@ function scrollToList() {
       </button>
     </div>
 
-    <div v-if="visibleLinks.length" class="hero-socials">
-      <a
-        v-for="link in visibleLinks"
-        :key="link.id"
-        :href="link.url"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="social-link"
-        :title="link.name"
-      >
-        <SocialIcon :icon="link.icon" :name="link.name" :size="26" />
-      </a>
-    </div>
   </section>
 </template>
 
@@ -142,8 +130,9 @@ function scrollToList() {
 .hero-subtitle {
   display: flex;
   align-items: baseline;
-  min-height: 28px;
-  font-size: 17px;
+  min-height: 34px;
+  font-size: 20px;
+  line-height: 1.5;
   color: var(--text-strong);
   /* 没有整屏遮罩后，用与主题底色同源的柔光保证照片上的可读性 */
   text-shadow:
@@ -167,7 +156,7 @@ function scrollToList() {
   padding: 0 var(--space-5);
   border-radius: var(--radius-2xl);
   border: 3px solid var(--border-default);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-strong);
   background: color-mix(in srgb, var(--bg-canvas) 55%, transparent);
@@ -182,41 +171,6 @@ function scrollToList() {
 .scroll-down:hover {
   border-color: var(--brand-500);
   color: var(--brand-500);
-}
-
-.hero-socials {
-  position: absolute;
-  bottom: var(--space-16);
-  left: 0;
-  right: 0;
-  z-index: 2;
-  display: flex;
-  justify-content: center;
-  gap: var(--space-4);
-}
-
-.social-link {
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: 1px solid var(--border-default);
-  color: var(--text-muted);
-  background: color-mix(in srgb, var(--bg-surface) 55%, transparent);
-  backdrop-filter: blur(6px);
-  transition:
-    color var(--transition-fast),
-    border-color var(--transition-fast),
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.social-link:hover {
-  color: var(--brand-500);
-  border-color: var(--brand-500);
-  transform: translateY(-3px);
-  box-shadow: var(--glow-cyan);
 }
 
 @keyframes float-title {
@@ -251,6 +205,29 @@ function scrollToList() {
 
   50% {
     opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- 窄屏
+   标题字号来自 --text-display（桌面 64px），小屏上按屏幕宽度退两档，
+   避免长站名被挤出视口。 */
+@media (max-width: 900px) {
+  .hero-title {
+    font-size: 48px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-title {
+    font-size: 38px;
+  }
+
+  .hero-subtitle {
+    font-size: 17px;
+  }
+
+  .scroll-down {
+    margin-top: var(--space-10);
   }
 }
 </style>

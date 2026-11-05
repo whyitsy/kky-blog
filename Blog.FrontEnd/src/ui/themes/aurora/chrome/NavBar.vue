@@ -19,6 +19,14 @@ import {
  * - 滚动超过 40px 才加 `.glass`，首页 Hero 上保持透明；
  * - 主题/配色切换由 DefaultLayout 挂载的全局 ThemeSwitcher 负责，这里只留搜索按钮。
  */
+const props = withDefaults(
+  defineProps<{
+    /** 首页内容区使用宽容器（1600），导航也跟随放宽，避免顶部与内容边缘错位 */
+    wide?: boolean
+  }>(),
+  { wide: false },
+)
+
 const route = useRoute()
 const search = useSearchStore()
 const site = useSiteStore()
@@ -42,7 +50,7 @@ function isActive(item: PublicNavItem): boolean {
 
 <template>
   <header class="navbar" :class="{ glass: scrolled }">
-    <div class="navbar-inner container">
+    <div class="navbar-inner container" :class="{ 'container-wide': props.wide }">
       <RouterLink to="/" class="logo">
         <SiteLogo :size="32" />
         <span class="logo-name">{{ siteName }}</span>
@@ -111,6 +119,8 @@ function isActive(item: PublicNavItem): boolean {
   align-items: center;
   gap: var(--space-8);
   height: var(--nav-height);
+  /* 首页/内页切换时容器宽度会变：动画过渡一下，避免导航突然「缩回去」 */
+  transition: max-width var(--transition-normal);
 }
 
 .logo {
@@ -118,7 +128,7 @@ function isActive(item: PublicNavItem): boolean {
   align-items: center;
   gap: var(--space-3);
   font-weight: 700;
-  font-size: 17px;
+  font-size: 18px;
   color: var(--text-strong);
 }
 
@@ -132,7 +142,7 @@ function isActive(item: PublicNavItem): boolean {
 .nav-link {
   position: relative;
   padding: var(--space-2) var(--space-3);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-muted);
   border-radius: var(--radius-sm);
@@ -178,7 +188,7 @@ function isActive(item: PublicNavItem): boolean {
   border-radius: var(--radius-2xl);
   border: 1px solid var(--border-default);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 14px;
   transition:
     color var(--transition-fast),
     border-color var(--transition-fast),

@@ -79,7 +79,7 @@ function go(p: number) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-muted);
   background: var(--bg-surface);

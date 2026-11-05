@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { progressDone, progressFail, progressStart } from '@/utils/progress'
 import type { UserRole } from '@/types'
 
 declare module 'vue-router' {
@@ -79,9 +80,39 @@ const router = createRouter({
     },
 
   ],
-  scrollBehavior(_to, _from, savedPosition) {
-    return savedPosition ?? { top: 0 }
+  scrollBehavior(to, from, savedPosition) {
+    // 浏览器前进/后退：回到离开时的位置
+    if (savedPosition) return savedPosition
+    // 带锚点的深链（例如从别处跳到 /#post-list）：滚到目标区块，
+    // 顶部留出固定导航的高度，并给页面切换动画一点落定时间。
+    if (to.hash) {
+      return { el: to.hash, top: 80, behavior: 'smooth' }
+    }
+    // 首页翻页只改 query（路由组件会被复用，不会触发页面切换）：
+    // 保留当前位置，由 HomePage 自己平滑滚回「最新文章」，否则会被这里的
+    // `{ top: 0 }` 抢回去、直接跳回首屏 Hero。其它页面翻页/筛选仍回到顶部。
+    if (to.name === 'home' && from.name === 'home') return false
+    return { top: 0 }
   },
+})
+
+/**
+ * 顶部加载进度：接入路由生命周期。
+ *
+ * 必须**第一个**注册 beforeEach —— 后面的守卫可能 redirect，先起条才不会漏掉
+ * 「/admin → /login」这种被重定向的切换。afterEach 在最终导航落定后收尾；
+ * 懒加载 chunk 失败等错误由 onError 收尾为警示色。
+ */
+router.beforeEach(() => {
+  progressStart()
+})
+
+router.afterEach(() => {
+  progressDone()
+})
+
+router.onError(() => {
+  progressFail()
 })
 
 /**

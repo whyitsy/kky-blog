@@ -58,14 +58,17 @@
   --font-serif: 'Noto Serif SC', 'Songti SC', Georgia, serif;
   --font-mono: 'Noto Sans Mono', 'SF Mono', 'Cascadia Code', Consolas, monospace;
 
-  /* ---------- 字号（font shorthand） ---------- */
-  --text-display: 700 56px / 1.15 var(--font-sans);
-  --text-h1: 700 46px / 1.2 var(--font-sans);
-  --text-h2: 700 28px / 1.3 var(--font-sans);
-  --text-h3: 600 22px / 1.35 var(--font-sans);
-  --text-body: 400 16px / 1.75 var(--font-sans);
-  --text-body-sm: 400 14px / 1.6 var(--font-sans);
-  --text-caption: 500 12px / 1.5 var(--font-sans);
+  /* ---------- 字号（font shorthand） ----------
+     全站字号整体上调一档（2026-11 视觉反馈：正文与小字号说明偏小）：
+     正文 16 → 17、正文小号 14 → 15、说明 12 → 13，标题逐级 +4px 左右。
+     paper 主题在自己的主题 Token 里覆盖整套字号，不受这里影响。 */
+  --text-display: 700 64px / 1.12 var(--font-sans);
+  --text-h1: 700 52px / 1.18 var(--font-sans);
+  --text-h2: 700 32px / 1.28 var(--font-sans);
+  --text-h3: 600 25px / 1.32 var(--font-sans);
+  --text-body: 400 17px / 1.8 var(--font-sans);
+  --text-body-sm: 400 15px / 1.65 var(--font-sans);
+  --text-caption: 500 13px / 1.55 var(--font-sans);
 
   /* ---------- 圆角 ---------- */
   --radius-xs: 4px;
@@ -88,10 +91,13 @@
   --space-16: 64px;
   --space-24: 96px;
 
-  /* ---------- 布局尺寸 ---------- */
-  --size-prose: 720px;
-  --size-container: 1120px;
-  --size-container-wide: 1280px;
+  /* ---------- 布局尺寸 ----------
+     首页用「更宽的容器 + 正常尺寸的 3 列卡片」：1920 屏两侧留白从 320px 收到
+     160px，同时单卡保持在 380px 左右（不是靠放大卡片去填满宽度）。
+     通用容器 1120 → 1200；正文栏 720 → 760（字号变大后保持每行字数）。 */
+  --size-prose: 760px;
+  --size-container: 1200px;
+  --size-container-wide: 1600px;
   --size-sidebar: 300px;
   --nav-height: 64px;
 
@@ -115,10 +121,14 @@
   /* ---------- 动效 ---------- */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
+  /* 页面切换 / 大块元素入场用：先快后慢的「落定」曲线 */
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ---------- 层级 ---------- */
   --z-nav: 100;
   --z-overlay: 300;
   --z-modal: 400;
   --z-toast: 500;
+  /* 顶部路由加载条：压在所有浮层之上（它是「整站正在切换」的信号） */
+  --z-progress: 600;
 }

@@ -3,7 +3,11 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { PostListItemDto } from '@/types'
 
-/** 文章卡片：封面 + 分类徽章 + 标题/摘要 + 日期/浏览 + 标签。 */
+/** 文章卡片：封面 + 分类徽章 + 标题/摘要 + 日期/浏览 + 标签。
+ *
+ * 首页和文章列表页共用同一套尺寸（3 列栅格）：封面 16:9、标题 18px（最多两行）、
+ * 摘要 15px，卡片宽度由所在容器决定 —— 首页容器更宽，单卡也就比列表页略大一点。
+ */
 const props = defineProps<{ post: PostListItemDto }>()
 
 const publishDate = computed(() => {
@@ -103,21 +107,37 @@ const publishDate = computed(() => {
   z-index: 2;
 }
 
+/* 封面 → 正文的衔接（参考 workspace/Blog 的 ArticleCard）：
+   · 正文整体上移 64px，压住封面底部，文字区与图片不再各占一半硬拼；
+   · 正文自身铺一层「透明 → 卡片底色」的竖向渐变：封面在底部 64px 内自然淡出，
+     文字落在渐变末端的实底上（图片从文字后面淡出，而不是在图上盖一块遮罩）；
+   · 不再做内缩/圆角/落影的独立面板，卡片始终是一张连续的面板。
+   渐变终点必须精确等于卡片底色（--bg-surface），否则会看出两层颜色。 */
 .card-body {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
+  gap: var(--space-3);
+  margin: -64px 0 0;
+  padding: 72px var(--space-5) var(--space-5);
+  background: linear-gradient(
+    180deg,
+    transparent 0,
+    color-mix(in srgb, var(--bg-surface) 35%, transparent) 22px,
+    color-mix(in srgb, var(--bg-surface) 75%, transparent) 46px,
+    var(--bg-surface) 64px
+  );
   flex: 1;
 }
 
 .card-title {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.42;
   color: var(--text-strong);
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   transition: color var(--transition-fast);

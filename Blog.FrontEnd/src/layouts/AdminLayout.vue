@@ -112,7 +112,7 @@ const currentTitle = computed(() => currentItem.value?.label ?? '管理后台')
 
       <div class="admin-content">
         <RouterView v-slot="{ Component }">
-          <Transition name="fade" mode="out-in">
+          <Transition name="page" mode="out-in">
             <component :is="Component" />
           </Transition>
         </RouterView>

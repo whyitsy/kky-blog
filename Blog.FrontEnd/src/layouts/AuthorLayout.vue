@@ -66,7 +66,7 @@ async function onLogout() {
 
     <main class="author-content">
       <RouterView v-slot="{ Component }">
-        <Transition name="fade" mode="out-in">
+        <Transition name="page" mode="out-in">
           <component :is="Component" />
         </Transition>
       </RouterView>

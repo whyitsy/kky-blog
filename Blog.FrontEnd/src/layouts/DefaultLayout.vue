@@ -22,7 +22,7 @@ onMounted(() => site.ensureLoaded())
 <template>
   <component :is="theme.shell">
     <RouterView v-slot="{ Component }">
-      <Transition name="fade" mode="out-in">
+      <Transition name="page" mode="out-in">
         <component :is="Component" />
       </Transition>
     </RouterView>

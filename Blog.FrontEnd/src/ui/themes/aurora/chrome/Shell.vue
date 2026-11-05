@@ -24,13 +24,14 @@ const flushMain = computed(() => route.name === 'home')
   <div class="shell">
     <!-- 极光星屑 + 软云：铺在内容后面，给非 Hero 页面补充背景层次 -->
     <PageDecor />
-    <NavBar />
+    <!-- 首页内容是宽容器（1600），导航/页脚跟随放宽，左右边缘与文章网格对齐 -->
+    <NavBar :wide="flushMain" />
 
     <main class="shell-main" :class="{ 'shell-main--flush': flushMain }">
       <slot />
     </main>
 
-    <SiteFooter />
+    <SiteFooter :wide="flushMain" />
   </div>
 </template>
 

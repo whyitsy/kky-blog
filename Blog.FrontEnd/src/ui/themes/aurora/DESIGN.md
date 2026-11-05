@@ -21,7 +21,11 @@ DOM 契约：`<html data-ui-theme="aurora" data-color-mode="dark">`。
 - **极光霓虹 Aurora Neon**：保留炫酷的渐变、径向光晕与发光效果，避免过度收敛。
 - **暗色优先**：默认暗色；亮色通过切换器显式选择。
 - **玻璃拟态 Glassmorphism**：导航使用半透明底色 + 背景模糊 + 微边框。
-- **双栏内容**：文章详情采用「正文 720px + 侧栏 300px」布局；归档页为单列时间轴。
+- **双栏内容**：文章详情采用「正文 760px + 侧栏 300px」布局；归档页为单列时间轴。
+- **大字号优先**：正文 17px、辅助说明 15px、说明文字 13px；文章卡片标题 18px
+  （最多两行），宁可让页面更长，也不要把正文挤成小字。
+- **用宽度填充留白**：首页把容器加到 1600px 而不是放大卡片；1920 屏两侧留白
+  从 320px 收到 160px，单卡仍保持在 380px 左右。
 - **Token 落地**：颜色、间距、圆角全部由 `tokens.css` 的 Design Token 提供，
   组件不写色值。
 
@@ -96,13 +100,13 @@ DOM 契约：`<html data-ui-theme="aurora" data-color-mode="dark">`。
 
 | 名称 | 字号 | 行高 | 字重 | 用途 |
 |---|---|---|---|---|
-| Display | 56px | 1.15 | 700 | 首页 Hero 标题 |
-| H1 | 46px | 1.2 | 700 | 文章详情标题 |
-| H2 | 28px | 1.3 | 700 | 章节标题 |
-| H3 | 22px | 1.35 | 600 | 小标题 |
-| Body | 16px | 1.75 | 400 | 正文 |
-| Body-sm | 14px | 1.6 | 400 | 辅助说明 |
-| Caption | 12px | 1.5 | 500 | 标签、时间 |
+| Display | 64px | 1.12 | 700 | 首页 Hero 标题（≤900px 退到 48px，≤640px 退到 38px） |
+| H1 | 52px | 1.18 | 700 | 文章详情标题（详情页实际 40px，避免长标题溢出） |
+| H2 | 32px | 1.28 | 700 | 章节标题 |
+| H3 | 25px | 1.32 | 600 | 小标题 |
+| Body | 17px | 1.8 | 400 | 正文 |
+| Body-sm | 15px | 1.65 | 400 | 辅助说明 |
+| Caption | 13px | 1.55 | 500 | 标签、时间 |
 
 ---
 
@@ -110,8 +114,9 @@ DOM 契约：`<html data-ui-theme="aurora" data-color-mode="dark">`。
 
 以 4px 为基准：`space-1=4` … `space-24=96`（完整清单见 foundation/tokens.css）。
 
-- 正文最大宽度：`size-prose = 720px`
-- 内容容器：`size-container = 1120px`
+- 正文最大宽度：`size-prose = 760px`
+- 内容容器：`size-container = 1200px`
+- 首页宽容器：`size-container-wide = 1600px`（宽屏两侧留白从 320px 收到 160px）
 - 侧栏：`size-sidebar = 300px`
 - 顶部导航高度：`nav-height = 64px`（页面内容由 shell 统一偏移）
 
@@ -143,6 +148,10 @@ DOM 契约：`<html data-ui-theme="aurora" data-color-mode="dark">`。
 
 - 背景 `bg-surface`；边框 1px `border-subtle`；圆角 `radius-lg`；
   阴影按层级使用 `shadow-sm` / `shadow-md`。
+- 文章卡片封面与正文的衔接参考 `workspace/Blog` 的 ArticleCard：正文整体上移 64px
+  压住封面底部，并在自身背景上铺「透明 → `bg-surface`」的竖向渐变，让封面在底部
+  自然淡入内容区，文字落在渐变末端的实底上。不做内缩/圆角/落影的独立面板，
+  卡片始终是一张连续的面板。
 
 ### 6.3 输入框 / 评论框
 
@@ -160,6 +169,11 @@ DOM 契约：`<html data-ui-theme="aurora" data-color-mode="dark">`。
 
 - 玻璃拟态固定顶栏：`--glass-bg`（Dark `bg-surface` 82% / Light 白色 82%）+
   `backdrop-blur(12px)`；滚动 > 40px 时启用。
+- 首页的导航跟随 `container-wide`（1600），左右边缘与文章网格对齐；页脚容器同样
+  放宽到 1600。内页保持 `container`（1200），导航宽度切换时带 250ms 过渡。
+- 页脚保持「品牌靠左 / 统计靠右」；备案信息收进同一个 `footer-inner` 的中间列，
+  用三栏栅格保证它在容器正中，避免原先单独一行时中间空出一段。
+  平板（<960px）时备案另起一行居中，手机（<640px）时整体居中堆叠、统计排成 2×2。
 - Logo：渐变圆形 + 紫色发光阴影。
 - 操作按钮：胶囊描边样式。
 - 主题/配色切换由全局 ThemeSwitcher 提供，导航内不再重复。
@@ -249,7 +263,26 @@ Hero/页头背景叠加 2-3 层径向渐变：
 - 图片先 `blur(2px)` + 轻微降饱和/压暗，再盖一层主题色遮罩（`--bg-canvas` 78%→88%），
   保证长文/列表页的正文对比度；
 - 没配置时这一层不渲染，只保留 7.6 的纯色 + 星屑装饰；
-- 首页 Hero 自己的背景图不受影响；本层在 Hero 下方开始可见。
+- 首页 Hero 自己的背景图不受影响；本层在 Hero 下方开始可见（Hero 背景层做了底部渐隐，
+  交界处也会透出其中的星屑/软云）。
+
+### 7.8 路由切换与页面过渡
+
+全站统一的「切换反馈」由两层组成，均来自 foundation（任何主题都能用，颜色全部走 Token）：
+
+1. **顶部路由加载条**（`components/RouteProgress.vue` + `utils/progress.ts`）：
+   路由开始 `progressStart()`，结束 `progressDone()`，导航失败 `progressFail()`（收尾变警示色）。
+   进度条从 10% 起步、自动补给逼近 90%（不会自己跑满），到 100% 后停留 240ms 再淡出；
+   最短显示 420ms，避免命中缓存时只闪一下。渲染是一条 3px 的极光渐变细条，
+   压在导航之上（`--z-progress`）。不引 nprogress 依赖，行为与视觉都可控。
+2. **页面切换过渡**（`reset.css` 的 `.page-*`）：三个 Layout 的 `RouterView` 统一用
+   `name="page" mode="out-in"`。旧页面 160ms 淡出并轻微上移，新页面从下方 16px 处
+   320ms 淡入，`--ease-out-expo` 收尾。只动 `opacity/transform`，不触发布局重排；
+   动画结束后 `transform` 回到 `none`，不会给页面内的 `position: fixed` 元素制造包含块。
+
+首页 Hero 的大图背景**保持完整**，不做渐隐/遮罩（按需求：大图背景不需要过渡）；
+内容区顶部只保留一层静态极光柔光（`.home-section::before`）补充背景层次。
+文章卡片内部的封面→正文过渡见 6.2 卡片。
 
 ---
 
@@ -257,7 +290,7 @@ Hero/页头背景叠加 2-3 层径向渐变：
 
 - 正文对比度：Dark `#CBDAE5` on `#13141A` ≈ 12.8:1；Light `#2E333D` on `#FFFFFF` ≈ 11.2:1。
 - 渐变文字仅用于装饰性大标题，不承载关键操作说明。
-- 按钮最小高度 36px；焦点态使用品牌色描边/外发光。
+- 按钮最小高度 38px；焦点态使用品牌色描边/外发光。
 - 尊重 `prefers-reduced-motion`（foundation/reset.css 统一降级）。
 
 ---
@@ -266,7 +299,7 @@ Hero/页头背景叠加 2-3 层径向渐变：
 
 | PageId | 布局特征 |
 |---|---|
-| `home` | 全屏 Hero + 宽容器（1280）双栏：主区 3 列文章网格 + 300px 侧栏（站点统计/热门标签/专栏推荐/探索入口） |
+| `home` | 全屏 Hero + 宽容器（1600）双栏：主区 3 列卡片（单卡约 382px，与列表页同一套卡片）+ 300px 侧栏（关于本站/社交入口/热门标签/专栏推荐/探索入口）；Hero 大图保持完整，内容区顶部保留静态极光柔光 |
 | `post-list` | 居中页头 + 文章卡片网格 + 分页 |
 | `post-detail` | 头图 + 标签/分类/专栏徽章 + 双栏（正文 + 目录/阅读进度）+ Giscus 评论 |
 | `archive` | 居中页头 + 年份/月份时间轴 |

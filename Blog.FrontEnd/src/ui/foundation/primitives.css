@@ -168,12 +168,12 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: 36px;
+  min-height: 38px;
   padding: 0 var(--space-4);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.4;
   color: var(--text-default);
@@ -235,9 +235,9 @@
 }
 
 .btn-sm {
-  min-height: 30px;
+  min-height: 32px;
   padding: 0 var(--space-3);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .btn-block {
@@ -251,9 +251,9 @@
 
 /* 兼容旧类名（后台大量使用 .btn-mini） */
 .btn-mini {
-  min-height: 30px;
+  min-height: 32px;
   padding: 0 var(--space-3);
-  font-size: 13px;
+  font-size: 14px;
 }
 .btn-mini.ghost {
   color: var(--text-default);
@@ -539,7 +539,7 @@
 
 .badge-sm {
   padding: 1px var(--space-2);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* 状态徽章（语义色） */

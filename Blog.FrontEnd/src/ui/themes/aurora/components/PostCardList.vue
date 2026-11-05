@@ -81,7 +81,7 @@ onBeforeUnmount(teardownReveal)
 
 <template>
   <div class="post-list">
-    <!-- 骨架屏（组件化） -->
+    <!-- 骨架屏（组件化）；默认 12 张，与首页一页的文章数一致，避免加载完成时高度跳变 -->
     <PostCardSkeleton v-if="loading" :count="skeletonCount ?? 12" />
 
     <!-- 空态 -->
@@ -90,7 +90,7 @@ onBeforeUnmount(teardownReveal)
       <p>暂无文章</p>
     </div>
 
-    <!-- 卡片栅格：≥1200px 三列 / 768-1199 两列 / <768 单列 -->
+    <!-- 卡片栅格：≥1200px 三列 / 768-1199 两列 / <768 单列（首页与列表页一致） -->
     <template v-else>
       <div ref="gridRef" class="grid">
         <div v-for="post in result.items" :key="post.id" class="grid-item">
@@ -110,8 +110,9 @@ onBeforeUnmount(teardownReveal)
 <style scoped>
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-6);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* 卡片之间留足呼吸感；不再靠放大卡片去填满宽度 */
+  gap: var(--space-8);
 }
 
 /* 包一层：入场动画的 transform 只作用在包装层，不影响卡片自身的 hover 上浮 */
