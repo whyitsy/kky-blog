@@ -59,6 +59,12 @@ namespace Blog.WebApi.Controllers
             [FromQuery] string? returnUrl,
             CancellationToken cancellationToken)
         {
+            // 页面可能从 127.0.0.1 打开，而 provider 回调配置的是 localhost。
+            // Cookie 按 host 隔离，必须先把用户带到回调配置的 host，否则 callback 收不到 state。
+            var canonicalStart = BuildCanonicalStartRedirect(provider, returnUrl);
+            if (canonicalStart is not null)
+                return Redirect(canonicalStart);
+
             try
             {
                 var result = await _externalAuth.StartAsync(
@@ -87,6 +93,8 @@ namespace Blog.WebApi.Controllers
             [FromBody] ExternalAuthStartRequest? request,
             CancellationToken cancellationToken)
         {
+            EnsureCanonicalHost(provider);
+
             var userId = _currentUser.UserId
                          ?? throw new BusinessException("未登录", ErrorCodes.Unauthorized);
 
@@ -109,6 +117,8 @@ namespace Blog.WebApi.Controllers
             [FromBody] ExternalAuthStartRequest? request,
             CancellationToken cancellationToken)
         {
+            EnsureCanonicalHost("feishu");
+
             var result = await _externalAuth.StartAsync(
                 "feishu",
                 ExternalAuthIntent.Login,
@@ -210,6 +220,59 @@ namespace Blog.WebApi.Controllers
         }
 
         // ---------------------------------------------------------------- helpers
+
+        /// <summary>
+        /// 如果当前页面 host 与 provider 回调 host 不一致，返回回调 host 上的 start 地址。
+        /// 不做这件事时，从 127.0.0.1 发起登录会写 127 的 state cookie，而 GitHub 回调到
+        /// localhost，callback 读不到 cookie，最终表现为 error=invalid_state。
+        /// </summary>
+        private string? BuildCanonicalStartRedirect(string provider, string? returnUrl)
+        {
+            if (!TryGetProviderRedirectUri(provider, out var redirectUri)) return null;
+
+            var requestHost = Request.Host.Host;
+            if (string.IsNullOrWhiteSpace(requestHost)
+                || string.Equals(requestHost, redirectUri.Host, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var query = string.IsNullOrWhiteSpace(returnUrl)
+                ? string.Empty
+                : $"?returnUrl={Uri.EscapeDataString(returnUrl)}";
+
+            return $"{redirectUri.Scheme}://{redirectUri.Authority}/api/auth/external/{provider}/start{query}";
+        }
+
+        /// <summary>绑定/扫码是 fetch，无法用 302 自动换 host；host 不一致时给明确错误。</summary>
+        private void EnsureCanonicalHost(string provider)
+        {
+            if (!TryGetProviderRedirectUri(provider, out var redirectUri)) return;
+
+            var requestHost = Request.Host.Host;
+            if (string.IsNullOrWhiteSpace(requestHost)
+                || string.Equals(requestHost, redirectUri.Host, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            throw new BusinessException(
+                $"当前访问地址（{requestHost}）与第三方回调地址（{redirectUri.Host}）不一致，请改用 {redirectUri.Scheme}://{redirectUri.Authority} 访问后再操作",
+                ErrorCodes.BusinessRule);
+        }
+
+        private bool TryGetProviderRedirectUri(string provider, out Uri redirectUri)
+        {
+            redirectUri = null!;
+
+            var raw = provider.Equals("feishu", StringComparison.OrdinalIgnoreCase)
+                ? _options.Feishu.RedirectUri
+                : provider.Equals("github", StringComparison.OrdinalIgnoreCase)
+                    ? _options.GitHub.RedirectUri
+                    : string.Empty;
+
+            return Uri.TryCreate(raw, UriKind.Absolute, out redirectUri!);
+        }
 
         private string FrontendUrl(string path, params (string Key, string? Value)[] query)
         {

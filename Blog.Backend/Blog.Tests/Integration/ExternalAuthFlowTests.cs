@@ -28,6 +28,43 @@ public sealed class ExternalAuthFlowTests
     public ExternalAuthFlowTests(BlogApiFixture fixture) => _fixture = fixture;
 
     [Fact]
+    public async Task 从127访问GitHub登录_先重定向到回调配置的localhost()
+    {
+        using var factory = _fixture.Factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ExternalAuth:FrontendBaseUrl"] = "http://localhost",
+                    ["ExternalAuth:GitHub:Enabled"] = "true",
+                    ["ExternalAuth:GitHub:ClientId"] = "test-client",
+                    ["ExternalAuth:GitHub:ClientSecret"] = "test-secret",
+                    ["ExternalAuth:GitHub:RedirectUri"] = "http://localhost/api/auth/external/github/callback",
+                });
+            });
+        });
+
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true,
+        });
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get, "/api/auth/external/github/start?returnUrl=/admin/security");
+        request.Headers.Host = "127.0.0.1:8080";
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var location = response.Headers.Location!;
+        Assert.Equal("localhost", location.Host);
+        Assert.Contains("/api/auth/external/github/start", location.AbsolutePath);
+        Assert.Contains("returnUrl=%2Fadmin%2Fsecurity", location.Query);
+    }
+
+    [Fact]
     public async Task 已绑定的GitHub账号_走完回调_可以换到本站JWT()
     {
         var adminId = await EnsureAdminBindingAsync();
