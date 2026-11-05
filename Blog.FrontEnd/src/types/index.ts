@@ -235,6 +235,25 @@ export interface LoginResponse {
   user: AuthUser
 }
 
+/* --------------------------------------------------------- 第三方登录 */
+/** 后端 ExternalAuthProvider 的字符串形式 */
+export type ExternalAuthProvider = 'GitHub' | 'Feishu'
+
+/** 登录页可见的 provider 能力；不含任何密钥 */
+export interface ExternalAuthProviderInfo {
+  provider: ExternalAuthProvider
+  displayName: string
+  supportsQr: boolean
+}
+
+/** 管理员绑定状态；只含平台 + 时间，不含第三方资料 */
+export interface ExternalAuthBinding {
+  provider: ExternalAuthProvider
+  displayName: string
+  boundAt: string
+  lastLoginAt: string | null
+}
+
 /* ------------------------------------------------------------------ 专栏 */
 /**
  * 专栏：把多篇文章组织成一个系列。

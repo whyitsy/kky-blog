@@ -22,6 +22,9 @@ namespace Blog.Infrastructure.Persistence
         /// <summary>登录账号（与 Author 分离）</summary>
         public DbSet<User> Users { get; set; }
 
+        /// <summary>第三方身份绑定（只存登录证明，不存资料/第三方 token）</summary>
+        public DbSet<ExternalLogin> ExternalLogins { get; set; }
+
         /// <summary>专栏</summary>
         public DbSet<Collection> Collections { get; set; }
 
@@ -133,6 +136,31 @@ namespace Blog.Infrastructure.Persistence
                       .WithMany()
                       .HasForeignKey(e => e.AuthorId)
                       .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<ExternalLogin>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                // 平台存字符串：可读、以后加平台不用改数据库类型
+                entity.Property(e => e.Provider).IsRequired().HasConversion<string>().HasMaxLength(20);
+                entity.Property(e => e.ProviderUserId).IsRequired().HasMaxLength(128);
+
+                // 同一个第三方身份只能绑定一个本站账号
+                entity.HasIndex(e => new { e.Provider, e.ProviderUserId })
+                      .IsUnique()
+                      .HasFilter("\"IsDeleted\" = false");
+
+                // 同一个本站账号对同一个平台最多一条有效绑定
+                entity.HasIndex(e => new { e.UserId, e.Provider })
+                      .IsUnique()
+                      .HasFilter("\"IsDeleted\" = false");
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });

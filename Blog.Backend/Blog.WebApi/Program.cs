@@ -10,6 +10,7 @@ using Blog.Infrastructure.Security;
 using Blog.WebApi.Authorization;
 using Blog.WebApi.HealthChecks;
 using Blog.WebApi.Middleware;
+using Blog.WebApi.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -77,6 +78,10 @@ try
     });
 
     builder.Services.AddOpenApi();
+
+    // 第三方登录的 state / 一次性登录票据 cookie 用 Data Protection 加密。
+    builder.Services.AddDataProtection();
+    builder.Services.AddScoped<ExternalAuthCookieStore>();
 
     // ---------------------------------------------------------------- 认证（JWT）
     // 只发 Access Token，不做 Refresh Token。有效期见 appsettings 的 Jwt 节。
