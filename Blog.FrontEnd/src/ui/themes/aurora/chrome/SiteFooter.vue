@@ -9,6 +9,14 @@ import SiteFiling from '@/ui/components/SiteFiling.vue'
  * Aurora 页脚：品牌信息 + 渐变分隔线 + 站点统计 + 备案信息。
  * 渐变分隔线复用主题全局装饰 `.gradient-line`（theme.css），不再重复定义。
  */
+const props = withDefaults(
+  defineProps<{
+    /** 与导航一致：首页内容用宽容器时，页脚也放宽到同一宽度 */
+    wide?: boolean
+  }>(),
+  { wide: false },
+)
+
 const site = useSiteStore()
 
 const year = new Date().getFullYear()
@@ -35,7 +43,7 @@ function formatViews(n: number) {
 <template>
   <footer class="site-footer">
     <div class="gradient-line" />
-    <div class="container footer-inner">
+    <div class="container footer-inner" :class="{ 'container-wide': props.wide }">
       <div class="footer-brand">
         <div class="footer-logo">
           <!-- 页脚没有发光效果，用 glow=false 保持原样 -->
@@ -45,17 +53,17 @@ function formatViews(n: number) {
         <p class="copyright">© {{ year }} kky · 记录代码与生活</p>
       </div>
 
+      <!-- 备案信息：ICP 备案号 + 公安联网备案（审核通过前不渲染），放在品牌与统计之间的中间列 -->
+      <div class="footer-filing">
+        <SiteFiling />
+      </div>
+
       <div v-if="statsItems.length" class="footer-stats">
         <div v-for="item in statsItems" :key="item.label" class="stat-item">
           <span class="stat-value gradient-text">{{ item.value }}</span>
           <span class="stat-label">{{ item.label }}</span>
         </div>
       </div>
-    </div>
-
-    <!-- 备案信息：ICP 备案号 + 公安联网备案（审核通过前不渲染） -->
-    <div class="container footer-filing">
-      <SiteFiling />
     </div>
   </footer>
 </template>
@@ -67,14 +75,19 @@ function formatViews(n: number) {
   border-top: 1px solid var(--border-subtle);
 }
 
+/* 页脚：品牌靠左、统计靠右，备案放在中间列（三栏栅格保证备案在容器正中）。
+   原先备案在 footer-inner 下面单独一行，中间空出一大段；现在收进同一行中间。 */
 .footer-inner {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-6);
   padding-top: var(--space-8);
   padding-bottom: var(--space-8);
-  flex-wrap: wrap;
+}
+
+.footer-brand {
+  justify-self: start;
 }
 
 .footer-logo {
@@ -95,6 +108,7 @@ function formatViews(n: number) {
 }
 
 .footer-stats {
+  justify-self: end;
   display: flex;
   gap: var(--space-8);
   flex-wrap: wrap;
@@ -108,7 +122,7 @@ function formatViews(n: number) {
 }
 
 .stat-value {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
 }
 
@@ -117,10 +131,64 @@ function formatViews(n: number) {
   color: var(--text-subtle);
 }
 
-/* 备案信息居中放在页脚最底部，字号/颜色统一由 SiteFiling 组件控制 */
+/* 备案信息在中间列居中，字号/颜色统一由 SiteFiling 组件控制 */
 .footer-filing {
+  justify-self: center;
   display: flex;
   justify-content: center;
-  padding-bottom: var(--space-6);
+}
+
+/* 三栏放不下时（平板）仍保持品牌靠左、统计靠右，备案居中另起一行 */
+@media (max-width: 959px) {
+  .footer-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand stats'
+      'filing filing';
+    row-gap: var(--space-5);
+  }
+
+  .footer-brand {
+    grid-area: brand;
+    justify-self: start;
+  }
+
+  .footer-stats {
+    grid-area: stats;
+    justify-self: end;
+  }
+
+  .footer-filing {
+    grid-area: filing;
+    justify-self: center;
+  }
+}
+
+/* 手机：整体居中堆叠，统计项排成 2×2，避免 4 项换行成 3+1 显得歪斜 */
+@media (max-width: 639px) {
+  .footer-inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'brand'
+      'stats'
+      'filing';
+    justify-items: center;
+    text-align: center;
+  }
+
+  .footer-brand {
+    justify-self: center;
+  }
+
+  .footer-logo {
+    justify-content: center;
+  }
+
+  .footer-stats {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    gap: var(--space-4) var(--space-8);
+    justify-self: center;
+  }
 }
 </style>

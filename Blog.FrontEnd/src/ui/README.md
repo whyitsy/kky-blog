@@ -11,7 +11,8 @@ ui/
 ├── contracts/            PageId + 页面模型（Page Model）+ 公开站导航项
 ├── runtime/              主题插件类型、注册表（extends 继承）、Pinia store、DOM 应用
 ├── foundation/           reset / Token 契约 / 通用组件类（唯一基础样式层）
-├── components/           主题无关组件：ThemeSwitcher、SiteLogo、SearchModal、SocialIcon、骨架屏、Giscus
+├── components/           主题无关组件：ThemeSwitcher、SiteLogo、SearchModal、SocialIcon、
+│                         RouteProgress（顶部路由加载条）、骨架屏、Giscus
 └── themes/
     ├── aurora/           默认主题：极光霓虹（dark/light），顶部导航 + Hero + 双栏详情
     └── paper/            第二主题：墨纸（ink/dusk），左侧栏 + 单栏正文 + 索引式归档

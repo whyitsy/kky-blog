@@ -199,7 +199,7 @@ defineProps<{ model: PostDetailPageModel }>()
 
 .post-title {
   font: var(--text-h1);
-  font-size: 36px;
+  font-size: 40px;
   color: var(--text-strong);
   max-width: 800px;
   margin-bottom: var(--space-4);
@@ -259,7 +259,7 @@ defineProps<{ model: PostDetailPageModel }>()
 }
 
 .sidebar-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-strong);
   margin-bottom: var(--space-3);
@@ -285,7 +285,7 @@ defineProps<{ model: PostDetailPageModel }>()
 
 .toc-link.toc-h3 {
   padding-left: var(--space-6);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .toc-link:hover,
@@ -317,8 +317,8 @@ defineProps<{ model: PostDetailPageModel }>()
 
 /* ---------- 正文排版 ---------- */
 .article-body {
-  font-size: 16px;
-  line-height: 1.75;
+  font-size: 17px;
+  line-height: 1.8;
   color: var(--text-default);
   overflow-wrap: break-word;
   /* 正文面板：与画布底色/极光光晕拉开层次，长文阅读时不至于「字和背景糊在一起」 */
@@ -343,7 +343,7 @@ defineProps<{ model: PostDetailPageModel }>()
 
 .article-body :deep(h2) {
   font: var(--text-h2);
-  font-size: 24px;
+  font-size: 26px;
   color: var(--text-strong);
   margin: var(--space-10) 0 var(--space-4);
   scroll-margin-top: calc(var(--nav-height) + var(--space-6));
@@ -351,7 +351,7 @@ defineProps<{ model: PostDetailPageModel }>()
 
 .article-body :deep(h3) {
   font: var(--text-h3);
-  font-size: 19px;
+  font-size: 20px;
   color: var(--text-strong);
   margin: var(--space-8) 0 var(--space-3);
   scroll-margin-top: calc(var(--nav-height) + var(--space-6));
@@ -417,7 +417,7 @@ defineProps<{ model: PostDetailPageModel }>()
 .article-body :deep(pre code) {
   padding: 0;
   background: none;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -437,7 +437,7 @@ defineProps<{ model: PostDetailPageModel }>()
   width: 100%;
   margin-bottom: var(--space-4);
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .article-body :deep(th),
