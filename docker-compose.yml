@@ -107,6 +107,22 @@ services:
       Jwt__Issuer: ${JWT_ISSUER:-blog-api}
       Jwt__Audience: ${JWT_AUDIENCE:-blog-frontend}
 
+      # 第三方登录：非敏感值给默认值，Secret 从 .env 注入。
+      # 只有 Enabled=true 且 ClientId/Secret/RedirectUri 齐全时应用才会启动。
+      ExternalAuth__FrontendBaseUrl: ${EXTERNAL_AUTH_FRONTEND_BASE_URL:-http://localhost:8080}
+      ExternalAuth__GitHub__Enabled: ${GITHUB_ENABLED:-false}
+      ExternalAuth__GitHub__ClientId: ${GITHUB_CLIENT_ID:-}
+      ExternalAuth__GitHub__ClientSecret: ${GITHUB_CLIENT_SECRET:-}
+      ExternalAuth__GitHub__RedirectUri: ${GITHUB_REDIRECT_URI:-http://localhost:8080/api/auth/external/github/callback}
+      ExternalAuth__GitHub__Scopes: ${GITHUB_SCOPES:-}
+      ExternalAuth__Feishu__Enabled: ${FEISHU_ENABLED:-false}
+      ExternalAuth__Feishu__AppId: ${FEISHU_APP_ID:-}
+      ExternalAuth__Feishu__AppSecret: ${FEISHU_APP_SECRET:-}
+      ExternalAuth__Feishu__RedirectUri: ${FEISHU_REDIRECT_URI:-http://localhost:8080/api/auth/external/feishu/callback}
+      ExternalAuth__Feishu__TenantKey: ${FEISHU_TENANT_KEY:-}
+      ExternalAuth__Feishu__Scopes: ${FEISHU_SCOPES:-}
+      ExternalAuth__Feishu__EnableQr: ${FEISHU_ENABLE_QR:-true}
+
       # 覆盖 appsettings.Production.json 里给容器网络用的默认值（此处显式写出，便于修改）
       Cache__Provider: Redis
       Cache__RedisConnection: redis:6379

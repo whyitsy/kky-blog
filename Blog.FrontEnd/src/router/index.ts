@@ -48,6 +48,14 @@ const router = createRouter({
       meta: { guestOnly: true },
     },
 
+    // 第三方授权回调落地页：用 HttpOnly 一次性票据换 JWT 后按角色/returnUrl 跳转。
+    // 不能设 guestOnly：此时本地还没有 token，但页面本身要执行换票逻辑。
+    {
+      path: '/auth/callback',
+      name: 'auth-callback',
+      component: () => import('@/views/auth/ExternalCallbackView.vue'),
+    },
+
     // 作者工作区：需要登录，Admin 也可进入（便于帮作者处理）
     {
       path: '/me',
@@ -76,6 +84,7 @@ const router = createRouter({
         { path: 'authors', name: 'admin-authors', component: () => import('@/views/AdminAuthorListView.vue') },
         { path: 'collections', name: 'admin-collections', component: () => import('@/views/AdminCollectionListView.vue') },
         { path: 'site', name: 'admin-site', component: () => import('@/views/AdminSiteConfigView.vue') },
+        { path: 'security', name: 'admin-security', component: () => import('@/views/AdminSecurityView.vue') },
       ],
     },
 

@@ -1,4 +1,5 @@
 using Blog.Application.Interfaces;
+using Blog.Application.Services.Auth;
 using Blog.Domain.IRepository;
 using Blog.Infrastructure.Caching;
 using Blog.Infrastructure.Diagnostics;
@@ -9,6 +10,7 @@ using Blog.Infrastructure.Persistence.Interceptors;
 using Blog.Infrastructure.Persistence.Repositories;
 using Blog.Infrastructure.RateLimiting;
 using Blog.Infrastructure.Security;
+using Blog.Infrastructure.Security.ExternalAuth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +37,7 @@ namespace Blog.Infrastructure
             services.AddScoped<ISiteConfigRepository, SiteConfigRepository>();
             services.AddScoped<ISocialLinkRepository, SocialLinkRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IExternalLoginRepository, ExternalLoginRepository>();
             services.AddScoped<ICollectionRepository, CollectionRepository>();
 
             // 读侧查询仓储
@@ -75,6 +78,18 @@ namespace Blog.Infrastructure
             // ---------------------------------------------------------------- 认证与安全
             services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
             services.AddHttpContextAccessor();
+
+            // 第三方登录：配置一次性绑定为单例；启用的 provider 缺凭据时启动期直接失败。
+            var externalAuthOptions = configuration
+                .GetSection(ExternalAuthOptions.SectionName)
+                .Get<ExternalAuthOptions>() ?? new ExternalAuthOptions();
+            externalAuthOptions.Validate();
+            services.AddSingleton(externalAuthOptions);
+
+            services.AddHttpClient("external-auth-github");
+            services.AddHttpClient("external-auth-feishu");
+            services.AddScoped<IExternalAuthProvider, GitHubAuthProvider>();
+            services.AddScoped<IExternalAuthProvider, FeishuAuthProvider>();
 
             services.AddSingleton<IPasswordHasher>(_ => new Pbkdf2PasswordHasher());
             services.AddSingleton<ITokenService, JwtTokenService>();
