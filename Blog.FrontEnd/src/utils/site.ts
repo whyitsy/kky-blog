@@ -23,14 +23,14 @@ export const ICP_LICENSE = '蜀ICP备2026066227号'
 export const ICP_LICENSE_URL = 'https://beian.miit.gov.cn/'
 
 /**
- * 公安联网备案号（当前审核中，**预留位置**）。
+ * 公安联网备案号（公安部要求展示在网站底部，并链接到 beian.mps.gov.cn）。
  *
- * 审核通过后把完整号码填到这里即可自动展示，例如：
- * `川公网安备 5101xxxxxxxxxxxx号`。
- * 留空（默认）时页面完全不渲染这一项，不会留下空链接。
+ * 完整号码含签发机关简称，例如：`川公网安备51010802033504号`。
+ * 留空时页面完全不渲染这一项，不会留下空链接。
  */
-export const POLICE_FILING_LICENSE = ''
+export const POLICE_FILING_LICENSE = '川公网安备51010802033504号'
 
-/** 公安联网备案查询系统；拿到号码后如需带 code 的查询链接，可在这里调整 */
-export const POLICE_FILING_URL = 'https://beian.mps.gov.cn/'
+/** 公安联网备案查询系统（带 code 可直接定位到本站备案记录） */
+export const POLICE_FILING_URL =
+  'https://beian.mps.gov.cn/#/query/webSearch?code=51010802033504'
 
