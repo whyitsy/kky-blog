@@ -53,7 +53,7 @@ function formatViews(n: number) {
         <p class="copyright">© {{ year }} kky · 记录代码与生活</p>
       </div>
 
-      <!-- 备案信息：ICP 备案号 + 公安联网备案（审核通过前不渲染），放在品牌与统计之间的中间列 -->
+      <!-- 备案信息：ICP 备案号 + 公安联网备案（带公网安备图标），放在品牌与统计之间的中间列 -->
       <div class="footer-filing">
         <SiteFiling />
       </div>
