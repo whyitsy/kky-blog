@@ -135,6 +135,7 @@ cd Blog.Backend && dotnet ef migrations add <Name> --project Blog.Infrastructure
 BLOG_CONNECTION="Host=localhost;..." dotnet ef database update --project Blog.Infrastructure --startup-project Blog.WebApi
 
 # 前端
+npm test                 # node:test：Markdown 导入/图片改写/主题注册
 npm run build            # vue-tsc -b && vite build
 
 # 部署
@@ -191,7 +192,7 @@ bash tools/deploy/deploy.sh status
 | 作业 | 做什么 | 何时 |
 |---|---|---|
 | `hygiene` | 拒绝 CRLF 行尾 | 每次 push / PR |
-| `frontend` | `vue-tsc -b --force` + `vite build` | 每次 push / PR |
+| `frontend` | `vue-tsc -b --force` + `npm test` + `vite build` | 每次 push / PR |
 | `backend` | 格式检查 → 编译 → 全部测试（连**真实** PostgreSQL）→ 迁移链 + 分词映射断言 → 覆盖率 | 每次 push / PR |
 | `security` | NuGet（含传递依赖）+ npm 漏洞扫描 | 每次 push / PR，**只报告不阻断** |
 | `publish` | 构建两个镜像推 GHCR，tag = commit sha | 合并进 main / 推 `v*` tag |

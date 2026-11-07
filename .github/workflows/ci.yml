@@ -82,6 +82,11 @@ jobs:
   # 作业二：前端
   # ══════════════════════════════════════════════════════════════════════
   frontend:
+    # ⚠️ 这个 name 是 main 分支保护里的 required status check context。
+    #    改名会让 PR 永远停在「Expected — Waiting for status to be reported」——
+    #    因为没有任何 job 再上报这个旧 context，close/reopen 或重跑 CI 都不会恢复。
+    #    要改展示名，必须先去 Settings → Branches → main 改 required checks，再改这里。
+    #    （本 job 实际还会跑 npm test，见下面的步骤；名字沿用旧值只是为了不破坏保护规则。）
     name: 前端（类型检查 + 构建）
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -103,6 +108,11 @@ jobs:
 
       - name: 类型检查
         run: npx vue-tsc -b --force
+
+      # 导入解析、图片识别/改写这些纯函数走 node:test；不跑这一步，
+      # 它们就只是本地脚本，坏掉了 CI 也不会红。
+      - name: 单测
+        run: npm test
 
       - name: 构建
         run: npx vite build
