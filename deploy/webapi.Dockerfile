@@ -8,11 +8,19 @@
 # 为什么要「多阶段」：
 #   SDK 镜像约 1GB（含编译器、NuGet、MSBuild），运行只需要 ASP.NET Core 运行时（约 220MB）。
 #   多阶段让最终镜像**不含编译器和源码**，体积小。
+#
+# 基础镜像刻意钉到**具体补丁版本**，不用浮动的 `10.0`：
+#   MCR 每次补丁发布都会把 `10.0` 重新指向新 digest，同一个 commit 在不同时间构建
+#   可能得到不同的 SDK/运行时，CI 产物与回滚就无法对照。
+#   这里不用 digest（可读性差、升级时看不出改了什么），而是用版本号；
+#   升级时按 releases-index.json 的 latest-sdk / latest-runtime 一起改下面两行。
+#   2026-11-07 校验：sdk:10.0 与 sdk:10.0.403、aspnet:10.0 与 aspnet:10.0.14
+#   的 manifest digest 分别相同（多架构 manifest list）。
 
 # ────────────────────────────────────────────────────────────────
 # 阶段 1：构建（builder）
 # ────────────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403 AS build
 WORKDIR /src
 
 # 【分层构建】先只复制 .csproj，再 restore，最后才复制源码。
@@ -43,7 +51,7 @@ RUN dotnet publish Blog.WebApi/Blog.WebApi.csproj \
 # ────────────────────────────────────────────────────────────────
 # 阶段 2：运行（runtime）
 # ────────────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.14 AS runtime
 
 # ────────────────────────────────────────────────────────────────
 # 构建版本信息（CI 用 --build-arg 注入，见 .github/workflows/ci.yml）
