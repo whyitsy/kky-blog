@@ -82,7 +82,7 @@ jobs:
   # 作业二：前端
   # ══════════════════════════════════════════════════════════════════════
   frontend:
-    name: 前端（类型检查 + 构建）
+    name: 前端（类型检查 + 单测 + 构建）
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -103,6 +103,11 @@ jobs:
 
       - name: 类型检查
         run: npx vue-tsc -b --force
+
+      # 导入解析、图片识别/改写这些纯函数走 node:test；不跑这一步，
+      # 它们就只是本地脚本，坏掉了 CI 也不会红。
+      - name: 单测
+        run: npm test
 
       - name: 构建
         run: npx vite build
