@@ -3,9 +3,10 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { createCategory, getCategories } from '@/api/categories'
 import { createTag, getTags } from '@/api/tags'
 import { getCollections } from '@/api/collections'
-import { uploadFile } from '@/api/files'
+import { importRemoteImage, uploadFile } from '@/api/files'
 import { ACCEPT_IMAGE } from '@/utils/media'
 import { buildImportPlan } from '@/utils/markdownImport'
+import { localizeMarkdownImages } from '@/utils/markdownImageImport'
 import { useAuthStore } from '@/stores/auth'
 import type { CategoryDto, CollectionDto, PostDetailDto, PostPayload, TagDto } from '@/types'
 
@@ -55,8 +56,21 @@ const inlineError = ref('')
 // .md 导入
 const MD_IMPORT_MAX_BYTES = 5 * 1024 * 1024
 const mdInput = ref<HTMLInputElement | null>(null)
+const mdDirInput = ref<HTMLInputElement | null>(null)
 const importingMd = ref(false)
+const importingLocalImages = ref(false)
+/** 导入过程中的副标题，如「本地化图片 2/7」；为空时按钮显示默认文案 */
+const importStage = ref('')
+/** 选择图片文件夹后的上传进度 */
+const localizeStage = ref('')
 const importNotice = ref('')
+/** 正文里还没处理的本地图片；有值时才显示「选择图片文件夹 / 忽略」 */
+const pendingLocalImages = ref<string[]>([])
+const busyImporting = computed(() => importingMd.value || importingLocalImages.value)
+const pendingLocalPreview = computed(() => {
+  const names = pendingLocalImages.value.slice(0, 2).join('、')
+  return pendingLocalImages.value.length > 2 ? `${names} 等` : names
+})
 
 const wordCount = computed(() => content.value.length)
 const readMinutes = computed(() => Math.max(1, Math.round(wordCount.value / 400)))
@@ -185,14 +199,34 @@ function pickMarkdown() {
   mdInput.value?.click()
 }
 
+/**
+ * 「选择图片文件夹」：只有正文里检测到本地相对路径图片时才出现。
+ * 目录选择会保留 `webkitRelativePath`，所以 `article.md` + `images/` 的结构也能匹配；
+ * 用户不选就保持原链接，等同于「忽略」。
+ */
+function pickImageFolder() {
+  mdDirInput.value?.click()
+}
+
 async function onPickMarkdown(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = '' // 允许连续选择同一个文件
-  if (!file) return
+  if (file) await importMarkdownFile(file)
+}
+
+async function onPickImageFolder(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  if (files.length > 0) await uploadLocalImages(files)
+}
+
+async function importMarkdownFile(file: File) {
+  if (busyImporting.value) return
 
   inlineError.value = ''
-  importNotice.value = ''
+  importStage.value = ''
 
   if (!/\.(md|markdown)$/i.test(file.name)) {
     inlineError.value = '请选择 .md / .markdown 文件'
@@ -220,6 +254,10 @@ async function onPickMarkdown(event: Event) {
     ) {
       return
     }
+
+    // confirm 之后再清状态：用户取消时，上一轮导入的提示和本地图片入口不能被清掉
+    importNotice.value = ''
+    pendingLocalImages.value = []
 
     const notices: string[] = []
 
@@ -278,16 +316,108 @@ async function onPickMarkdown(event: Event) {
     }
 
     if (!plan.content.trim()) notices.push('文件里没有正文内容')
+
+    // 在线图片（语雀 CDN / 站外）在这里自动处理；本地图片先不动，
+    // 只有用户在下面的提示里主动选择图片文件夹才会上传，否则保留原链接（忽略）。
+    try {
+      const localized = await localizeMarkdownImages(plan.content, {
+        files: [],
+        importRemote: importRemoteImage,
+        uploadLocal: uploadFile,
+        onProgress: (done, total) => {
+          importStage.value = `本地化图片 ${done}/${total}`
+        },
+      })
+
+      content.value = localized.content
+      pendingLocalImages.value = localized.missingLocal
+      if (localized.localized > 0) notices.push(`本地化在线图片 ${localized.localized} 张`)
+      if (localized.failures.length > 0) {
+        notices.push(
+          `图片失败 ${localized.failures.length} 张（保留原链接）：${summarizeImageFailures(localized.failures)}`,
+        )
+      }
+    } catch (e) {
+      // 编排层理论上不抛（单图异常已内部消化）；真抛了也只提示，正文已经导入
+      notices.push(`图片本地化中断（${e instanceof Error ? e.message : '未知错误'}）`)
+    }
+
     importNotice.value = notices.length > 0 ? `已导入：${notices.join('；')}` : '已导入正文'
   } catch (e) {
     inlineError.value = e instanceof Error ? `Markdown 导入失败：${e.message}` : 'Markdown 导入失败'
   } finally {
     importingMd.value = false
+    importStage.value = ''
   }
 }
 
+/**
+ * 用户选择了图片文件夹：重新扫一遍当前正文，把本地相对路径图片上传并改写。
+ * 已经是 `/api/files/` 的图片会被忽略，所以这一步是幂等的；之前抓取失败的
+ * 在线图片也会顺带重试一次（在线图片始终处理）。
+ */
+async function uploadLocalImages(files: File[]) {
+  if (importingLocalImages.value || importingMd.value) return
+
+  inlineError.value = ''
+  localizeStage.value = ''
+  importingLocalImages.value = true
+  try {
+    const localized = await localizeMarkdownImages(content.value, {
+      files,
+      importRemote: importRemoteImage,
+      uploadLocal: uploadFile,
+      onProgress: (done, total) => {
+        localizeStage.value = `处理图片 ${done}/${total}`
+      },
+    })
+
+    content.value = localized.content
+    pendingLocalImages.value = localized.missingLocal
+
+    const notices: string[] = []
+    if (localized.localized > 0) notices.push(`本地化图片 ${localized.localized} 张`)
+    if (localized.failures.length > 0) {
+      notices.push(
+        `图片失败 ${localized.failures.length} 张（保留原链接）：${summarizeImageFailures(localized.failures)}`,
+      )
+    }
+    if (localized.missingLocal.length > 0) {
+      notices.push(`还有 ${localized.missingLocal.length} 张本地图片没匹配到，请确认文件夹是否选对`)
+    }
+    if (notices.length === 0) notices.push('没有找到可上传的图片，请确认文件夹是否选对')
+
+    const summary = `图片处理：${notices.join('；')}`
+    importNotice.value = importNotice.value ? `${importNotice.value}；${summary}` : summary
+  } catch (e) {
+    inlineError.value = e instanceof Error ? `图片上传失败：${e.message}` : '图片上传失败'
+  } finally {
+    importingLocalImages.value = false
+    localizeStage.value = ''
+  }
+}
+
+function dismissLocalImages() {
+  const count = pendingLocalImages.value.length
+  pendingLocalImages.value = []
+  if (count === 0) return
+
+  const summary = `已忽略 ${count} 张本地图片（保留原链接）`
+  importNotice.value = importNotice.value ? `${importNotice.value}；${summary}` : summary
+}
+
+function summarizeImageFailures(failures: Array<{ url: string; reason: string }>): string {
+  const preview = failures
+    .slice(0, 2)
+    .map((failure) => `${failure.url}（${failure.reason}）`)
+    .join('；')
+  return failures.length > 2 ? `${preview} 等` : preview
+}
+
 function submit() {
-  if (!formValid.value) return
+  // 图片本地化还没结束就提交，会把「未完成上传的链接」存进库；
+  // 按钮已经 disabled，这里再挡一次键盘 Enter 触发的提交。
+  if (!formValid.value || busyImporting.value) return
   const payload: PostPayload = {
     title: title.value.trim(),
     summary: summary.value.trim(),
@@ -429,11 +559,12 @@ function submit() {
     <div class="field">
       <div class="field-head">
         <span class="field-label">正文 <em class="required">*</em> · Markdown · 约 {{ readMinutes }} 分钟阅读</span>
-        <button type="button" class="btn btn-sm" :disabled="importingMd" @click="pickMarkdown">
-          {{ importingMd ? '读取中...' : '从 .md 导入' }}
+        <button type="button" class="btn btn-sm" :disabled="busyImporting" @click="pickMarkdown">
+          {{ importStage || (importingMd ? '导入中...' : '从 .md 导入') }}
         </button>
-        <input ref="mdInput" type="file" accept=".md,.markdown,text/markdown" hidden @change="onPickMarkdown" />
       </div>
+      <!-- 只选 .md；本地图片在导入后检测到才提示选文件夹，避免两个入口语义混淆 -->
+      <input ref="mdInput" type="file" accept=".md,.markdown,text/markdown" hidden @change="onPickMarkdown" />
       <textarea v-model="content" class="textarea content-input" rows="14" placeholder="支持 Markdown：## 标题、- 列表、```代码块``` 等" />
       <small v-if="contentError" class="hint-error">{{ contentError }}</small>
       <small v-else class="hint">{{ wordCount }} 字</small>
@@ -441,7 +572,26 @@ function submit() {
         支持 front matter：title / summary / description / tags / category / cover / draft；
         管理员导入时会自动创建缺失的标签与分类
       </small>
+      <small class="hint">
+        正文里的在线图片（语雀 CDN、站外）会自动下载并转存到本站；本地相对路径图片在导入后可选文件夹上传
+      </small>
       <small v-if="importNotice" class="hint">{{ importNotice }}</small>
+
+      <!-- 只有正文里确实存在本地相对路径图片时才出现。不选/忽略 = 保留原链接 -->
+      <div v-if="pendingLocalImages.length > 0" class="banner banner-info local-images">
+        <span>
+          检测到 {{ pendingLocalImages.length }} 张本地图片（{{ pendingLocalPreview }}）。
+          选择图片所在文件夹会自动上传；不选择则保留原链接（忽略）。
+        </span>
+        <button type="button" class="btn btn-sm" :disabled="busyImporting" @click="pickImageFolder">
+          {{ importingLocalImages ? localizeStage || '上传中...' : '选择图片文件夹' }}
+        </button>
+        <button type="button" class="btn btn-sm btn-ghost" :disabled="busyImporting" @click="dismissLocalImages">
+          忽略
+        </button>
+      </div>
+      <!-- 目录选择保留 webkitRelativePath，article.md + images/ 的结构才能匹配 -->
+      <input ref="mdDirInput" type="file" webkitdirectory hidden @change="onPickImageFolder" />
     </div>
 
     <label v-if="mode === 'create'" class="switch">
@@ -453,7 +603,7 @@ function submit() {
 
     <footer class="panel-actions">
       <button type="button" class="btn btn-ghost" :disabled="saving" @click="emit('cancel')">取消</button>
-      <button type="submit" class="btn btn-primary" :disabled="!formValid || saving || uploadingCover">
+      <button type="submit" class="btn btn-primary" :disabled="!formValid || saving || uploadingCover || busyImporting">
         {{ saving ? '保存中...' : mode === 'create' ? '创建' : '保存修改' }}
       </button>
     </footer>
@@ -480,6 +630,17 @@ function submit() {
   justify-content: space-between;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.local-images {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.local-images span {
+  flex: 1 1 260px;
 }
 
 .content-input {
