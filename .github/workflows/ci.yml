@@ -82,7 +82,12 @@ jobs:
   # 作业二：前端
   # ══════════════════════════════════════════════════════════════════════
   frontend:
-    name: 前端（类型检查 + 单测 + 构建）
+    # ⚠️ 这个 name 是 main 分支保护里的 required status check context。
+    #    改名会让 PR 永远停在「Expected — Waiting for status to be reported」——
+    #    因为没有任何 job 再上报这个旧 context，close/reopen 或重跑 CI 都不会恢复。
+    #    要改展示名，必须先去 Settings → Branches → main 改 required checks，再改这里。
+    #    （本 job 实际还会跑 npm test，见下面的步骤；名字沿用旧值只是为了不破坏保护规则。）
+    name: 前端（类型检查 + 构建）
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
