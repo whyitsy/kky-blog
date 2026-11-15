@@ -499,12 +499,18 @@ function retry(): void {
 }
 
 .pp-article-body :deep(code) {
-  padding: 1px 5px;
+  padding: 0.12em 0.4em;
   font-family: var(--font-mono);
-  font-size: 0.84em;
+  font-size: 0.88em;
   color: var(--text-strong);
-  background: var(--bg-sunken);
-  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--brand-500) 8%, var(--bg-sunken));
+  border: 1px solid color-mix(in srgb, var(--brand-500) 24%, var(--border-subtle));
+  border-radius: var(--radius-xs);
+  /* 行内代码可能带连续空格或跨行；保留空格并让每一行都有底色/边框 */
+  white-space: break-spaces;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 .pp-article-body :deep(pre) {
@@ -519,8 +525,17 @@ function retry(): void {
 
 .pp-article-body :deep(pre code) {
   padding: 0;
-  background: none;
   border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-strong);
+  font-size: inherit;
+  line-height: inherit;
+  /* 撤销行内代码的断行策略：代码块继续横向滚动，不自动折行 */
+  white-space: pre;
+  overflow-wrap: normal;
+  -webkit-box-decoration-break: slice;
+  box-decoration-break: slice;
 }
 
 .pp-article-body :deep(img) {
