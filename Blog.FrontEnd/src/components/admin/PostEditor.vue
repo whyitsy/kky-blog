@@ -436,11 +436,48 @@ function submit() {
 <template>
   <form class="post-editor panel panel-stack" @submit.prevent="submit">
     <header class="pe-head">
-      <h2>{{ mode === 'create' ? '新建文章' : '编辑文章' }}</h2>
-      <p v-if="mode === 'edit' && initial" class="hint pe-meta">
-        版本 v{{ initial.version }} · 最近更新 {{ initial.updatedAt?.replace('T', ' ').slice(0, 16) }}
-      </p>
+      <div class="pe-head-main">
+        <h2>{{ mode === 'create' ? '新建文章' : '编辑文章' }}</h2>
+        <p v-if="mode === 'edit' && initial" class="hint pe-meta">
+          版本 v{{ initial.version }} · 最近更新 {{ initial.updatedAt?.replace('T', ' ').slice(0, 16) }}
+        </p>
+      </div>
+      <div class="pe-head-actions">
+        <!-- 编辑页的返回入口放在页头；底部的「取消」保留，给习惯底部操作的人 -->
+        <button
+          v-if="mode === 'edit'"
+          type="button"
+          class="btn btn-sm btn-ghost"
+          :disabled="saving"
+          @click="emit('cancel')"
+        >
+          ← 返回
+        </button>
+        <button type="button" class="btn btn-sm" :disabled="busyImporting" @click="pickMarkdown">
+          {{ importStage || (importingMd ? '导入中...' : '从 .md 导入') }}
+        </button>
+      </div>
+      <!-- 只选 .md；本地图片在导入后检测到才提示选文件夹，避免两个入口语义混淆 -->
+      <input ref="mdInput" type="file" accept=".md,.markdown,text/markdown" hidden @change="onPickMarkdown" />
+      <!-- 目录选择保留 webkitRelativePath，article.md + images/ 的结构才能匹配 -->
+      <input ref="mdDirInput" type="file" webkitdirectory hidden @change="onPickImageFolder" />
     </header>
+
+    <small v-if="importNotice" class="hint">{{ importNotice }}</small>
+
+    <!-- 只有正文里确实存在本地相对路径图片时才出现。不选/忽略 = 保留原链接 -->
+    <div v-if="pendingLocalImages.length > 0" class="banner banner-info local-images">
+      <span>
+        检测到 {{ pendingLocalImages.length }} 张本地图片（{{ pendingLocalPreview }}）。
+        选择图片所在文件夹会自动上传；不选择则保留原链接（忽略）。
+      </span>
+      <button type="button" class="btn btn-sm" :disabled="busyImporting" @click="pickImageFolder">
+        {{ importingLocalImages ? localizeStage || '上传中...' : '选择图片文件夹' }}
+      </button>
+      <button type="button" class="btn btn-sm btn-ghost" :disabled="busyImporting" @click="dismissLocalImages">
+        忽略
+      </button>
+    </div>
 
     <label class="field">
       <span class="field-label">标题 <em class="required">*</em></span>
@@ -557,14 +594,7 @@ function submit() {
     </div>
 
     <div class="field">
-      <div class="field-head">
-        <span class="field-label">正文 <em class="required">*</em> · Markdown · 约 {{ readMinutes }} 分钟阅读</span>
-        <button type="button" class="btn btn-sm" :disabled="busyImporting" @click="pickMarkdown">
-          {{ importStage || (importingMd ? '导入中...' : '从 .md 导入') }}
-        </button>
-      </div>
-      <!-- 只选 .md；本地图片在导入后检测到才提示选文件夹，避免两个入口语义混淆 -->
-      <input ref="mdInput" type="file" accept=".md,.markdown,text/markdown" hidden @change="onPickMarkdown" />
+      <span class="field-label">正文 <em class="required">*</em> · Markdown · 约 {{ readMinutes }} 分钟阅读</span>
       <textarea v-model="content" class="textarea content-input" rows="14" placeholder="支持 Markdown：## 标题、- 列表、```代码块``` 等" />
       <small v-if="contentError" class="hint-error">{{ contentError }}</small>
       <small v-else class="hint">{{ wordCount }} 字</small>
@@ -575,23 +605,6 @@ function submit() {
       <small class="hint">
         正文里的在线图片（语雀 CDN、站外）会自动下载并转存到本站；本地相对路径图片在导入后可选文件夹上传
       </small>
-      <small v-if="importNotice" class="hint">{{ importNotice }}</small>
-
-      <!-- 只有正文里确实存在本地相对路径图片时才出现。不选/忽略 = 保留原链接 -->
-      <div v-if="pendingLocalImages.length > 0" class="banner banner-info local-images">
-        <span>
-          检测到 {{ pendingLocalImages.length }} 张本地图片（{{ pendingLocalPreview }}）。
-          选择图片所在文件夹会自动上传；不选择则保留原链接（忽略）。
-        </span>
-        <button type="button" class="btn btn-sm" :disabled="busyImporting" @click="pickImageFolder">
-          {{ importingLocalImages ? localizeStage || '上传中...' : '选择图片文件夹' }}
-        </button>
-        <button type="button" class="btn btn-sm btn-ghost" :disabled="busyImporting" @click="dismissLocalImages">
-          忽略
-        </button>
-      </div>
-      <!-- 目录选择保留 webkitRelativePath，article.md + images/ 的结构才能匹配 -->
-      <input ref="mdDirInput" type="file" webkitdirectory hidden @change="onPickImageFolder" />
     </div>
 
     <label v-if="mode === 'create'" class="switch">
@@ -616,20 +629,33 @@ function submit() {
   margin: 0 auto;
 }
 
+.pe-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.pe-head-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.pe-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .pe-head h2 {
   font: var(--text-h2);
 }
 
 .panel-actions {
   margin-top: 0;
-}
-
-.field-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  flex-wrap: wrap;
 }
 
 .local-images {
