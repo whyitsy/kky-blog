@@ -78,6 +78,11 @@
   --code-number: #f5b544;
   --code-function: #c4a7ff;
   --code-meta: #ffb86b;
+
+  /* 行内代码胶囊：提高与正文面板的明度差，避免只剩一层几乎同亮的底色 */
+  --inline-code-fg: #ffffff;
+  --inline-code-bg: #1a424d;
+  --inline-code-border: #3a93a8;
 }
 
 /* ---------------------------------------------------------------- 亮色 */
@@ -151,4 +156,9 @@
   --code-number: #8a5a00;
   --code-function: #5433ff;
   --code-meta: #9a4a00;
+
+  /* 行内代码胶囊：亮色下用更实的粉色底和更深的描边，避免在白面板上发飘 */
+  --inline-code-fg: #111317;
+  --inline-code-bg: #f2d3e3;
+  --inline-code-border: #b84f87;
 }

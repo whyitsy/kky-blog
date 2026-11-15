@@ -421,9 +421,16 @@ defineProps<{ model: PostDetailPageModel }>()
   font-family: var(--font-mono);
   font-size: 0.88em;
   padding: 0.12em 0.4em;
-  color: var(--text-strong);
-  background: color-mix(in srgb, var(--brand-500) 8%, var(--bg-sunken));
-  border: 1px solid color-mix(in srgb, var(--brand-500) 24%, var(--border-subtle));
+  color: var(--inline-code-fg, var(--text-strong));
+  background: var(
+    --inline-code-bg,
+    color-mix(in srgb, var(--brand-500) 8%, var(--bg-sunken))
+  );
+  border: 1px solid
+    var(
+      --inline-code-border,
+      color-mix(in srgb, var(--brand-500) 24%, var(--border-subtle))
+    );
   border-radius: var(--radius-xs);
   /* 行内代码可能带连续空格或跨行；保留空格并让每一行都有底色/边框 */
   white-space: break-spaces;
