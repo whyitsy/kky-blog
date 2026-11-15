@@ -11,6 +11,7 @@ namespace Blog.Application.Services.Post
         Guid? CategoryId,
         string? CategoryName,
         List<TagBriefDto> Tags,
+        List<CollectionBriefDto> Collections,
         DateTimeOffset? PublishedAt,
         int ViewCount
     );
