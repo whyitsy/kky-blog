@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteStore } from '@/stores/site'
+import { formatDocumentTitle } from '@/utils/documentTitle'
 import { progressDone, progressFail, progressStart } from '@/utils/progress'
+import { DEFAULT_SITE_NAME } from '@/utils/site'
 import type { UserRole } from '@/types'
 
 declare module 'vue-router' {
@@ -11,6 +14,8 @@ declare module 'vue-router' {
     roles?: UserRole[]
     /** 仅未登录可访问（登录/注册页），已登录会被送回首页 */
     guestOnly?: boolean
+    /** 浏览器标签页标题的页面部分；不填则只显示站点名 */
+    title?: string
   }
 }
 
@@ -23,18 +28,54 @@ const router = createRouter({
       component: () => import('@/layouts/DefaultLayout.vue'),
       children: [
         { path: '', name: 'home', component: () => import('@/views/HomeView.vue') },
-        { path: 'post/:id', name: 'post-detail', component: () => import('@/views/PostDetailView.vue') },
-        { path: 'tags', name: 'tags', component: () => import('@/views/TagsView.vue') },
-        { path: 'categories', name: 'categories', component: () => import('@/views/CategoriesView.vue') },
-        { path: 'archive', name: 'archive', component: () => import('@/views/ArchiveView.vue') },
-        { path: 'posts', name: 'post-list', component: () => import('@/views/PostListView.vue') },
-        { path: 'collections', name: 'collections', component: () => import('@/views/CollectionListView.vue') },
-        { path: 'collections/:slug', name: 'collection-detail', component: () => import('@/views/CollectionDetailView.vue') },
+        {
+          path: 'post/:id',
+          name: 'post-detail',
+          component: () => import('@/views/PostDetailView.vue'),
+          meta: { title: '文章' },
+        },
+        {
+          path: 'tags',
+          name: 'tags',
+          component: () => import('@/views/TagsView.vue'),
+          meta: { title: '标签' },
+        },
+        {
+          path: 'categories',
+          name: 'categories',
+          component: () => import('@/views/CategoriesView.vue'),
+          meta: { title: '分类' },
+        },
+        {
+          path: 'archive',
+          name: 'archive',
+          component: () => import('@/views/ArchiveView.vue'),
+          meta: { title: '归档' },
+        },
+        {
+          path: 'posts',
+          name: 'post-list',
+          component: () => import('@/views/PostListView.vue'),
+          meta: { title: '文章列表' },
+        },
+        {
+          path: 'collections',
+          name: 'collections',
+          component: () => import('@/views/CollectionListView.vue'),
+          meta: { title: '专栏' },
+        },
+        {
+          path: 'collections/:slug',
+          name: 'collection-detail',
+          component: () => import('@/views/CollectionDetailView.vue'),
+          meta: { title: '专栏' },
+        },
         // 404 放在公开站布局内：主题化后的 404 也能带导航/页脚（主题的 not-found 页面）
         {
           path: ':pathMatch(.*)*',
           name: 'not-found',
           component: () => import('@/views/NotFoundView.vue'),
+          meta: { title: '页面不存在' },
         },
       ],
     },
@@ -45,7 +86,7 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('@/views/auth/LoginView.vue'),
-      meta: { guestOnly: true },
+      meta: { guestOnly: true, title: '登录' },
     },
 
     // 第三方授权回调落地页：用 HttpOnly 一次性票据换 JWT 后按角色/returnUrl 跳转。
@@ -54,6 +95,7 @@ const router = createRouter({
       path: '/auth/callback',
       name: 'auth-callback',
       component: () => import('@/views/auth/ExternalCallbackView.vue'),
+      meta: { title: '登录中' },
     },
 
     // 作者工作区：需要登录，Admin 也可进入（便于帮作者处理）
@@ -62,10 +104,30 @@ const router = createRouter({
       component: () => import('@/layouts/AuthorLayout.vue'),
       meta: { requiresAuth: true, roles: ['Author', 'Admin'] },
       children: [
-        { path: '', name: 'my-posts', component: () => import('@/views/me/MyPostListView.vue') },
-        { path: 'posts/new', name: 'my-post-new', component: () => import('@/views/me/MyPostNewView.vue') },
-        { path: 'posts/:id/edit', name: 'my-post-edit', component: () => import('@/views/me/MyPostEditView.vue') },
-        { path: 'profile', name: 'my-profile', component: () => import('@/views/me/MyProfileView.vue') },
+        {
+          path: '',
+          name: 'my-posts',
+          component: () => import('@/views/me/MyPostListView.vue'),
+          meta: { title: '我的文章' },
+        },
+        {
+          path: 'posts/new',
+          name: 'my-post-new',
+          component: () => import('@/views/me/MyPostNewView.vue'),
+          meta: { title: '新建文章' },
+        },
+        {
+          path: 'posts/:id/edit',
+          name: 'my-post-edit',
+          component: () => import('@/views/me/MyPostEditView.vue'),
+          meta: { title: '编辑文章' },
+        },
+        {
+          path: 'profile',
+          name: 'my-profile',
+          component: () => import('@/views/me/MyProfileView.vue'),
+          meta: { title: '个人资料' },
+        },
       ],
     },
 
@@ -75,16 +137,66 @@ const router = createRouter({
       component: () => import('@/layouts/AdminLayout.vue'),
       meta: { requiresAuth: true, roles: ['Admin'] },
       children: [
-        { path: '', name: 'admin-posts', component: () => import('@/views/AdminPostListView.vue') },
-        { path: 'posts/new', name: 'admin-post-new', component: () => import('@/views/AdminPostNewView.vue') },
-        { path: 'posts/:id/edit', name: 'admin-post-edit', component: () => import('@/views/AdminPostEditView.vue') },
-        { path: 'categories', name: 'admin-categories', component: () => import('@/views/AdminCategoryListView.vue') },
-        { path: 'tags', name: 'admin-tags', component: () => import('@/views/AdminTagListView.vue') },
-        { path: 'users', name: 'admin-users', component: () => import('@/views/AdminUserListView.vue') },
-        { path: 'authors', name: 'admin-authors', component: () => import('@/views/AdminAuthorListView.vue') },
-        { path: 'collections', name: 'admin-collections', component: () => import('@/views/AdminCollectionListView.vue') },
-        { path: 'site', name: 'admin-site', component: () => import('@/views/AdminSiteConfigView.vue') },
-        { path: 'security', name: 'admin-security', component: () => import('@/views/AdminSecurityView.vue') },
+        {
+          path: '',
+          name: 'admin-posts',
+          component: () => import('@/views/AdminPostListView.vue'),
+          meta: { title: '文章管理' },
+        },
+        {
+          path: 'posts/new',
+          name: 'admin-post-new',
+          component: () => import('@/views/AdminPostNewView.vue'),
+          meta: { title: '新建文章' },
+        },
+        {
+          path: 'posts/:id/edit',
+          name: 'admin-post-edit',
+          component: () => import('@/views/AdminPostEditView.vue'),
+          meta: { title: '编辑文章' },
+        },
+        {
+          path: 'categories',
+          name: 'admin-categories',
+          component: () => import('@/views/AdminCategoryListView.vue'),
+          meta: { title: '分类管理' },
+        },
+        {
+          path: 'tags',
+          name: 'admin-tags',
+          component: () => import('@/views/AdminTagListView.vue'),
+          meta: { title: '标签管理' },
+        },
+        {
+          path: 'users',
+          name: 'admin-users',
+          component: () => import('@/views/AdminUserListView.vue'),
+          meta: { title: '账号管理' },
+        },
+        {
+          path: 'authors',
+          name: 'admin-authors',
+          component: () => import('@/views/AdminAuthorListView.vue'),
+          meta: { title: '作者管理' },
+        },
+        {
+          path: 'collections',
+          name: 'admin-collections',
+          component: () => import('@/views/AdminCollectionListView.vue'),
+          meta: { title: '专栏管理' },
+        },
+        {
+          path: 'site',
+          name: 'admin-site',
+          component: () => import('@/views/AdminSiteConfigView.vue'),
+          meta: { title: '网站配置' },
+        },
+        {
+          path: 'security',
+          name: 'admin-security',
+          component: () => import('@/views/AdminSecurityView.vue'),
+          meta: { title: '账号安全' },
+        },
       ],
     },
 
@@ -116,8 +228,17 @@ router.beforeEach(() => {
   progressStart()
 })
 
-router.afterEach(() => {
+router.afterEach((to) => {
   progressDone()
+
+  // 每次导航都重设标题：文章详情会在加载完成后覆盖成文章标题，
+  // 但离开详情页时必须有别的页面把它改回来，否则 tab 会一直停在上一篇文章上。
+  // 站点名优先用后台配置，配置还没加载完时退回构建期默认值。
+  const site = useSiteStore()
+  document.title = formatDocumentTitle(
+    to.meta.title,
+    site.config?.siteName || DEFAULT_SITE_NAME,
+  )
 })
 
 router.onError(() => {

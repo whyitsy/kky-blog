@@ -53,6 +53,7 @@ defineProps<{ model: PostDetailPageModel }>()
         <div class="post-hero-mask" />
         <div class="container post-hero-content">
           <div class="post-badges">
+            <button type="button" class="post-back" @click="model.goBack()">← 返回</button>
             <RouterLink
               v-if="model.post.categoryId"
               :to="{ path: '/posts', query: { categoryId: model.post.categoryId } }"
@@ -184,8 +185,27 @@ defineProps<{ model: PostDetailPageModel }>()
   padding-bottom: var(--space-8);
 }
 
+.post-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  font: var(--text-caption);
+  cursor: pointer;
+}
+
+.post-back:hover {
+  border-color: var(--border-strong);
+  color: var(--text-strong);
+}
+
 .post-badges {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-bottom: var(--space-4);
