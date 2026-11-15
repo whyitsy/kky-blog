@@ -2,8 +2,8 @@
    Aurora · 极光霓虹主题 Token
    ----------------------------------------------------------------------------
    暗色为默认配色；亮色为第二配色。Token 契约见 src/ui/foundation/tokens.css。
-   除契约 Token 外，本主题还定义了私有 Token（--post-hero-mask），
-   只允许本主题的组件消费。
+   除契约 Token 外，本主题还定义了私有 Token（--post-hero-mask）与
+   代码高亮 Token（--code-*），后者由共享的 code-highlight.css 消费。
    ========================================================================== */
 
 /* ---------------------------------------------------------------- 暗色（默认） */
@@ -69,6 +69,20 @@
 
   /* 私有 Token：文章头图遮罩（首页 Hero 已不再使用整屏遮罩） */
   --post-hero-mask: linear-gradient(180deg, rgba(19, 20, 26, 0.3), var(--bg-canvas) 96%);
+
+  /* 代码高亮：与极光主题的霓虹色系一致，底为 --bg-sunken */
+  --code-keyword: #ff7ab2;
+  --code-type: #4fd8ea;
+  --code-string: #9ee6a8;
+  --code-comment: #7f8798;
+  --code-number: #f5b544;
+  --code-function: #c4a7ff;
+  --code-meta: #ffb86b;
+
+  /* 行内代码胶囊：提高与正文面板的明度差，避免只剩一层几乎同亮的底色 */
+  --inline-code-fg: #ffffff;
+  --inline-code-bg: #1a424d;
+  --inline-code-border: #3a93a8;
 }
 
 /* ---------------------------------------------------------------- 亮色 */
@@ -133,4 +147,18 @@
 
   /* 私有 Token：文章头图遮罩（亮色下降低强度，避免过曝） */
   --post-hero-mask: linear-gradient(180deg, rgba(241, 243, 249, 0.2), var(--bg-canvas) 96%);
+
+  /* 代码高亮：亮色下用同色相的加深版，保证 13/14px 代码仍有足够对比度 */
+  --code-keyword: #b0246d;
+  --code-type: #0b6b78;
+  --code-string: #2f6b3a;
+  --code-comment: #535b6d;
+  --code-number: #8a5a00;
+  --code-function: #5433ff;
+  --code-meta: #9a4a00;
+
+  /* 行内代码胶囊：亮色下用更实的粉色底和更深的描边，避免在白面板上发飘 */
+  --inline-code-fg: #111317;
+  --inline-code-bg: #f2d3e3;
+  --inline-code-border: #b84f87;
 }

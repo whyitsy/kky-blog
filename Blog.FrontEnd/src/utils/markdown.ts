@@ -1,8 +1,11 @@
 import DOMPurify from 'dompurify'
-import { marked } from 'marked'
+import { Marked } from 'marked'
 // KaTeX 的字体/排版只服务于公式。放在这里（而不是 main.ts）让 Vite 把样式
 // 拆进文章详情页的懒加载 chunk，首页/列表页不必为公式多下载一份 CSS。
 import 'katex/dist/katex.min.css'
+// 代码高亮样式同样只属于文章详情：和 KaTeX 一起留在懒加载 chunk 里。
+import '@/ui/foundation/code-highlight.css'
+import { renderCodeBlock } from './codeHighlight.ts'
 import { protectMath, restoreMath } from './markdownMath.ts'
 
 /**
@@ -43,9 +46,29 @@ import { protectMath, restoreMath } from './markdownMath.ts'
  * 直接渲染会原样显示源码；而且 `_`、`\\` 还会被 Markdown 的语法吃掉。这里在
  * parse **之前**把公式换成占位符，sanitize **之后**再换回 KaTeX 的 HTML ——
  * 顺序原因和 XSS 边界见 `markdownMath.ts` 文件头。
+ *
+ * <h3>代码块高亮</h3>
+ * 围栏里的语言标记（```csharp）由 `renderCodeBlock` 归一后交给 highlight.js。
+ * 高亮结果只带 class、不带内联 style：先高亮再 sanitize，既让 DOMPurify 保留
+ * token span，也继续执行「禁用 style」的策略；主题切换只换 CSS 变量，不必重新渲染。
  */
 
 let hooksRegistered = false
+
+/**
+ * 文章详情专用的 marked 实例。
+ *
+ * 只覆写 code renderer：围栏里的语言标记交给 highlight.js，输出 class 形式的
+ * token span。不要改全局 `marked`，也不要把原始语言名直接拼进 class——
+ * `renderCodeBlock` 会先做白名单归一。
+ */
+const markdown = new Marked({
+  renderer: {
+    code({ text, lang }) {
+      return renderCodeBlock(text, lang)
+    },
+  },
+})
 
 function registerHooks(): void {
   // 模块级去重：addHook 是全局的，重复注册会让同一个节点被处理多次
@@ -76,8 +99,9 @@ export function renderMarkdown(content: string): string {
   // 先把公式换成占位符：marked 不会动它，后面的 sanitize 也不会
   const { text, formulas } = protectMath(content)
 
-  // 用 marked 的同步模式：异步模式返回 Promise，v-html 拿不到字符串
-  const raw = marked.parse(text, { async: false }) as string
+  // 用 marked 的同步模式：异步模式返回 Promise，v-html 拿不到字符串。
+  // 代码块在 renderer 里同步高亮，因此整条渲染链路仍然可以直接返回字符串。
+  const raw = markdown.parse(text, { async: false }) as string
 
   const clean = DOMPurify.sanitize(raw, {
     // 标题锚点：目录（TOC）靠 id 跳转，DOMPurify 默认会把它剥掉
