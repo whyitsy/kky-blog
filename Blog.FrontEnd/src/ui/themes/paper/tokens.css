@@ -3,7 +3,8 @@
    ----------------------------------------------------------------------------
    两种配色：ink（纸白，默认）/ dusk（墨夜）。
    契约 Token 见 src/ui/foundation/tokens.css —— 这里必须覆盖全部契约 Token。
-   主题私有 Token 一律以 `--pp-` 开头，只允许本主题的组件消费。
+   主题私有 Token 一律以 `--pp-` 开头，只允许本主题的组件消费；
+   `--code-*` 是跨主题的代码高亮 Token，由共享的 code-highlight.css 消费。
 
    设计取向：编辑部 / 文学刊物。暖纸底 + 墨字 + 暗红/橄榄点缀；
    极小圆角（0~2px）、无霓虹、无玻璃拟态、层次靠 1px 细线与留白。
@@ -115,6 +116,16 @@
   --z-overlay: 300;
   --z-modal: 400;
   --z-toast: 500;
+
+  /* ---------- 共享代码高亮 Token（由 code-highlight.css 消费，可被其他主题覆盖） ---------- */
+  /* 墨红 / 橄榄 / 赭金，避免彩色代码破坏刊物的纸面气质 */
+  --code-keyword: #8a2f28;
+  --code-type: #31587c;
+  --code-string: #5c5d2c;
+  --code-comment: #6f685b;
+  --code-number: #8a5d18;
+  --code-function: #6f241f;
+  --code-meta: #7a4a00;
 
   /* ---------- 私有 Token（只属于 paper） ---------- */
   --pp-sidebar-width: 244px;
@@ -231,6 +242,16 @@
   --z-overlay: 300;
   --z-modal: 400;
   --z-toast: 500;
+
+  /* ---------- 共享代码高亮 Token（由 code-highlight.css 消费，可被其他主题覆盖） ---------- */
+  /* 墨夜下提亮同色相，保持纸面之外的夜间阅读层次 */
+  --code-keyword: #e3a294;
+  --code-type: #8fb3d6;
+  --code-string: #c2bd85;
+  --code-comment: #978c79;
+  --code-number: #d9a45f;
+  --code-function: #d18a7a;
+  --code-meta: #e0b07a;
 
   /* ---------- 私有 Token ---------- */
   --pp-sidebar-width: 244px;

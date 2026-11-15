@@ -1,0 +1,92 @@
+/* ============================================================================
+   代码高亮映射
+   ----------------------------------------------------------------------------
+   highlight.js 只输出 class（hljs-keyword / hljs-string ...），颜色全部交给
+   主题 Token。这样切换亮暗模式时不需要重新高亮，也不会引入内联 style。
+
+   `--code-*` 不是 foundation 的契约 Token：这里给出一套基于语义 Token 的兜底，
+   aurora / paper 再按自己的色系覆盖。外部主题不覆盖也能保持可读。
+   ========================================================================== */
+
+:root {
+  --code-keyword: var(--brand-500);
+  --code-type: var(--status-info);
+  --code-string: var(--status-success);
+  --code-comment: var(--text-subtle);
+  --code-number: var(--status-warning);
+  --code-function: var(--accent-500);
+  --code-meta: var(--text-muted);
+}
+
+.hljs {
+  color: var(--text-default);
+  background: transparent;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link,
+.hljs-tag,
+.hljs-name {
+  color: var(--code-keyword);
+}
+
+.hljs-built_in,
+.hljs-type,
+.hljs-class .hljs-title,
+.hljs-title.class_ {
+  color: var(--code-type);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-attribute,
+.hljs-attr,
+.hljs-template-tag,
+.hljs-template-variable {
+  color: var(--code-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--code-number);
+}
+
+.hljs-title,
+.hljs-title.function_,
+.hljs-function .hljs-title,
+.hljs-property {
+  color: var(--code-function);
+}
+
+.hljs-meta,
+.hljs-meta .hljs-keyword,
+.hljs-meta .hljs-string,
+.hljs-doctag {
+  color: var(--code-meta);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 600;
+}
+
+.hljs-addition {
+  color: var(--code-string);
+}
+
+.hljs-deletion {
+  color: var(--code-meta);
+}
