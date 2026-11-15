@@ -140,6 +140,10 @@ namespace Blog.Infrastructure.Persistence.Repositories
                 p.CategoryId,
                 p.Category != null ? p.Category.Name : null,
                 p.Tags.Select(t => new TagBriefDto(t.Id, t.Name)).ToList(),
+                p.CollectionLinks
+                    .OrderBy(l => l.SortOrder)
+                    .Select(l => new CollectionBriefDto(l.CollectionId, l.Collection!.Title, l.Collection.Slug))
+                    .ToList(),
                 p.PublishedAt,
                 p.ViewCount);
 

@@ -47,6 +47,11 @@ function isDraft(p: PostListItemDto) {
   return !p.publishedAt
 }
 
+/** 兼容旧缓存里没有 collections 字段的 DTO（部署后缓存 TTL 内可能读到旧结构） */
+function collectionsOf(p: PostListItemDto) {
+  return p.collections ?? []
+}
+
 /** 说明：文章详情接口每次调用会累计浏览量，管理端仅用它取 version 做乐观锁 */
 async function withVersion<T>(p: PostListItemDto, fn: (version: number) => Promise<T>) {
   busyId.value = p.id
@@ -90,12 +95,13 @@ const canNext = computed(() => page.value < totalPages.value)
 
     <p v-if="errorMsg" class="banner banner-error">{{ errorMsg }}</p>
 
-    <PostListRowSkeleton v-if="loading" :rows="6" :columns="6" />
+    <PostListRowSkeleton v-if="loading" :rows="6" :columns="7" />
 
     <div v-else-if="hasAny" class="table">
       <div class="table-row table-head">
         <span class="col-title">标题</span>
         <span class="col-cat">分类</span>
+        <span class="col-collection">专栏</span>
         <span class="col-tag">标签</span>
         <span class="col-status">状态</span>
         <span class="col-time">时间</span>
@@ -116,6 +122,18 @@ const canNext = computed(() => page.value < totalPages.value)
         </span>
 
         <span class="col-cat" data-label="分类">{{ p.categoryName || '—' }}</span>
+
+        <span class="col-collection" data-label="专栏">
+          <span
+            v-for="c in collectionsOf(p)"
+            :key="c.id"
+            class="collection-badge"
+            :title="c.title"
+          >
+            {{ c.title }}
+          </span>
+          <span v-if="!collectionsOf(p).length" class="muted">—</span>
+        </span>
 
         <span class="col-tag" data-label="标签">
           <span v-for="t in p.tags" :key="t.id" class="tag-badge">{{ t.name }}</span>
@@ -161,7 +179,7 @@ const canNext = computed(() => page.value < totalPages.value)
 }
 
 .table-row {
-  grid-template-columns: minmax(0, 2fr) 1fr minmax(0, 1.4fr) 76px 132px 148px;
+  grid-template-columns: minmax(0, 2fr) 1fr minmax(0, 1fr) minmax(0, 1.4fr) 76px 132px 148px;
 }
 
 .col-title {
@@ -182,10 +200,17 @@ const canNext = computed(() => page.value < totalPages.value)
   display: none;
 }
 
-.col-tag {
+.col-tag,
+.col-collection {
   display: flex;
   gap: var(--space-1);
   flex-wrap: wrap;
+}
+
+.col-collection .collection-badge {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .col-time {
@@ -215,11 +240,13 @@ const canNext = computed(() => page.value < totalPages.value)
   }
   /* 默认只显示标题 + 状态，展开后显示其余字段 */
   .col-cat,
+  .col-collection,
   .col-tag,
   .col-time {
     display: none;
   }
   .table-row.expanded .col-cat,
+  .table-row.expanded .col-collection,
   .table-row.expanded .col-tag,
   .table-row.expanded .col-time {
     display: flex;
@@ -230,6 +257,7 @@ const canNext = computed(() => page.value < totalPages.value)
   }
 
   .col-cat::before,
+  .col-collection::before,
   .col-tag::before,
   .col-time::before {
     flex-shrink: 0;
@@ -237,6 +265,9 @@ const canNext = computed(() => page.value < totalPages.value)
   }
   .col-cat::before {
     content: '分类';
+  }
+  .col-collection::before {
+    content: '专栏';
   }
   .col-tag::before {
     content: '标签';

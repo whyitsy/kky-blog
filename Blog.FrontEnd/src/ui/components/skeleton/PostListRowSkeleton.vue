@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /**
  * 表格行骨架（管理端文章列表 / 我的文章）。
- * 列数与 AdminPostListView 的 grid 一致，避免加载后横向跳动。
+ * 列数由调用方传入，与各自表格的 grid 对齐，避免加载后横向跳动。
  */
 withDefaults(
   defineProps<{
     rows?: number
-    /** 列数：管理端文章表为 6 列 */
+    /** 列数：与管理列表的 grid 保持一致（管理端 7 列，我的文章 4 列） */
     columns?: number
   }>(),
   { rows: 6, columns: 6 },
@@ -14,7 +14,7 @@ withDefaults(
 </script>
 
 <template>
-  <div class="table">
+  <div class="table" :style="{ '--sk-columns': columns }">
     <div class="row head-row">
       <span v-for="c in columns" :key="c" class="sk-line shimmer" />
     </div>
@@ -33,7 +33,7 @@ withDefaults(
 
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) 1fr minmax(0, 1.4fr) 76px 132px 148px;
+  grid-template-columns: repeat(var(--sk-columns, 6), minmax(0, 1fr));
   gap: var(--space-3);
   align-items: center;
   padding: var(--space-3) var(--space-4);

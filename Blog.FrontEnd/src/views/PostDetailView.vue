@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { getPostDetail } from '@/api/posts'
 import { isNotFoundError } from '@/api/http'
 import { renderMarkdown } from '@/utils/markdown'
@@ -14,6 +14,7 @@ import { useThemePage, type PostDetailPageModel, type TocItem } from '@/ui'
  * 把展示所需的一切组装成 `PostDetailPageModel`。
  */
 const route = useRoute()
+const router = useRouter()
 const site = useSiteStore()
 
 /** 当前主题提供的文章详情页组件 */
@@ -57,7 +58,12 @@ async function load(id: string) {
   post.value = null
   try {
     post.value = await getPostDetail(id)
-    document.title = `${post.value.title} - ${site.config?.siteName || DEFAULT_SITE_NAME}`
+
+    // 异步回来时可能已经切到别的页面：只有仍停在同一条详情路由上才覆盖标题，
+    // 否则会把新页面的标题又改回上一篇文章。
+    if (route.name === 'post-detail' && String(route.params.id ?? '') === id) {
+      document.title = `${post.value.title} - ${site.config?.siteName || DEFAULT_SITE_NAME}`
+    }
     buildToc()
   } catch (e) {
     // 只有真正的「不存在」（业务码 4040 / 裸 404）才是 404 页；
@@ -134,6 +140,12 @@ function retry() {
   void load(String(route.params.id ?? ''))
 }
 
+/** 返回：有站内历史就后退，直接打开详情页时回文章列表（避免退到站外） */
+function goBack() {
+  if (window.history.state?.back) router.back()
+  else router.push({ name: 'post-list' })
+}
+
 watch(() => route.params.id, (id) => id && load(String(id)))
 
 onMounted(() => {
@@ -168,6 +180,7 @@ const model = computed<PostDetailPageModel>(() => ({
   readMinutes: readMinutes.value,
   publishedLabel: publishedLabel.value,
   retry,
+  goBack,
   scrollToHeading,
 }))
 </script>

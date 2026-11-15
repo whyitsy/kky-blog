@@ -72,6 +72,8 @@ export interface PostDetailPageModel {
   /** 已格式化的发布日期，如 2026/10/28 */
   publishedLabel: string
   retry: () => void
+  /** 返回上一页；直接打开详情页时回文章列表 */
+  goBack: () => void
   scrollToHeading: (id: string) => void
 }
 

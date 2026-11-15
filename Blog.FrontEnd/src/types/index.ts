@@ -37,6 +37,8 @@ export interface PostListItemDto {
   categoryId: string | null
   categoryName: string | null
   tags: TagDto[]
+  /** 所属专栏（管理列表展示归属；公开卡片暂不使用） */
+  collections: CollectionBriefDto[]
   publishedAt: string | null
   viewCount: number
 }

@@ -77,6 +77,7 @@ function retry(): void {
     <article v-else-if="post" class="pp-article">
       <header class="pp-article-head">
         <p class="pp-article-kicker">
+          <button type="button" class="pp-back" @click="model.goBack()">← 返回</button>
           <span>{{ post.categoryName || '随笔' }}</span>
           <span class="pp-kicker-sep">/</span>
           <time>{{ model.publishedLabel }}</time>
@@ -216,6 +217,25 @@ function retry(): void {
 }
 
 /* ---------------------------------------------------------------- 文章容器 */
+.pp-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: var(--text-caption);
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.pp-back:hover {
+  color: var(--brand-500);
+}
+
 .pp-article {
   max-width: var(--size-prose);
   margin: 0 auto;
